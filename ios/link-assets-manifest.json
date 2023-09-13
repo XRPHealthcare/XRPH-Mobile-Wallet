@@ -1,0 +1,13 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/NexaBold.otf",
+      "sha1": "314a9320e40fbad1bedd829caf62102a5d3d5d61"
+    },
+    {
+      "path": "assets/fonts/NexaLight.otf",
+      "sha1": "0d1e39a7f64ada86e8a89c28ef73fe48bae1a947"
+    }
+  ]
+}
