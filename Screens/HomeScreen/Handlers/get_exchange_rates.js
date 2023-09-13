@@ -2,24 +2,6 @@ const firestore = require('@react-native-firebase/firestore');
 console.log(typeof firestore);
 
 const getExchangeRates = async (exchangeFrom, exchangeIn) => {
-//     const response = await fetch("https://api.livecoinwatch.com/coins/single", {
-//        method: 'POST',
-//        headers: {
-//            Accept: 'application/json',
-//            'Content-Type': 'application/json',
-//            'X-Api-Key': '25e019d0-afde-4331-9ec0-56bf9323cdb5'
-//        },
-//        body: JSON.stringify({
-//            currency: exchangeIn,
-//            code: exchangeFrom,
-//            meta: true
-//        })
-//    });
-//    const tokenJson = await response.json();
-//    const tokenRate = tokenJson.rate;
-//    console.log(tokenJson.rate);
-
-//    return tokenRate;
 
     let XRPrate = 0;
     let XRPHrate = 0;
