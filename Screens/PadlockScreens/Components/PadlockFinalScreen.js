@@ -160,22 +160,6 @@ const PadlockFinalScreen = ({ navigation }) => {
                           // balances[i].currency
                           // balances[i].value
                           const { currency, value } = balances[j];
-                          // const value = Number(valueStr);
-                          // const response = await fetch("https://api.livecoinwatch.com/coins/single", {
-                          //     method: 'POST',
-                          //     headers: {
-                          //         Accept: 'application/json',
-                          //         'Content-Type': 'application/json',
-                          //         'X-Api-Key': '25e019d0-afde-4331-9ec0-56bf9323cdb5'
-                          //     },
-                          //     body: JSON.stringify({
-                          //         currency: currencies[i],
-                          //         code: currency,
-                          //         meta: true
-                          //     })
-                          // });
-                          // const tokenJson = await response.json();
-                          // const tokenRate = tokenJson.rate;
                           
                           let XRPrate = 0;
                           let XRPHrate = 0;
@@ -251,9 +235,6 @@ const PadlockFinalScreen = ({ navigation }) => {
             setAddAccountModalOpen(true);
             setPadlockErrorMessage("");
         } else {
-            // onPadlockSuccess(); // generate new wallet address
-            // setAddAccountModalOpen(true);
-            // setPadlockErrorMessage("");
             onPadlockError();
         }
     }
