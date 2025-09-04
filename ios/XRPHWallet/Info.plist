@@ -11,7 +11,7 @@
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
-	<string>7.0.4</string>
+	<string>7.3.9</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -34,10 +34,10 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<string>1</string>
 	<key>FirebaseDynamicLinksCustomDomains</key>
 	<array>
-		<string>http://</string>
+		<string>http://xrphwallet.page.link</string>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
@@ -59,27 +59,30 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>localhost</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
-		</dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Used to scan QR codes. See Pod RNQrGenerator for more information.</string>
+	<string>Xrph Wallet needs camera access to scan QR codes.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Yes</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Used to scan QR codes. See Pod RNQrGenerator for more information.</string>
+	<string>Yes</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>NexaBold.otf</string>
-		<string>NexaLight.otf</string>
+		<string>LeagueSpartanBlack.ttf</string>
+		<string>LeagueSpartanBold.ttf</string>
+		<string>LeagueSpartanExtraBold.ttf</string>
+		<string>LeagueSpartanExtraLight.ttf</string>
+		<string>LeagueSpartanLight.ttf</string>
+		<string>LeagueSpartanMedium.ttf</string>
+		<string>LeagueSpartanRegular.ttf</string>
+		<string>LeagueSpartanSemiBold.ttf</string>
+		<string>LeagueSpartanThin.ttf</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

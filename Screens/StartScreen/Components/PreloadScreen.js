@@ -7,6 +7,7 @@ import {
   Image,
   StyleSheet,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import AntDesign from 'react-native-vector-icons/AntDesign';
@@ -19,24 +20,34 @@ import dynamicLinks from '@react-native-firebase/dynamic-links';
 import {getAppVersion} from '../../ForceUpdateScreen/Handlers/get_app_version';
 import {getVersion} from 'react-native-device-info';
 import {useGetLoggedInUser, useLogin} from '../../../utils/auth.api';
+import {getRpcs} from '../../HomeScreen/Handlers/get_rpcs';
+import {parseAccount} from '../../HomeScreen/Handlers/parse_account';
 AntDesign.loadFont();
 Feather.loadFont();
 MaterialCommunityIcons.loadFont();
 
 const PreloadScreen = ({navigation}) => {
+  // Detect System Theme
+  const systemTheme = useColorScheme();
+
   const userLoggedIn = useGetLoggedInUser();
   const userLogin = useLogin();
   const {theme} = useStore();
   const setAppInfo = useStore(state => state.setAppInfo);
+  const setRpcUrls = useStore(state => state.setRpcUrls);
   const setAccounts = useStore(state => state.setAccounts);
   const setActiveAccount = useStore(state => state.setActiveAccount);
+  const setAccountBalances = useStore(state => state.setAccountBalances);
+  const setActiveConnections = useStore(state => state.setActiveConnections);
   const setPin = useStore(state => state.setPin);
+  const setNewPadlock = useStore(state => state.setNewPadlock);
   const setTotalBalanceCurrency = useStore(
     state => state.setTotalBalanceCurrency,
   );
   const toggleTheme = useStore(state => state.toggleTheme);
   const setNode = useStore(state => state.setNode);
   const setDynamicLink = useStore(state => state.setDynamicLink);
+
 
   let colors = light;
   if (theme === 'dark') {
@@ -45,9 +56,13 @@ const PreloadScreen = ({navigation}) => {
 
   const styles = styling(colors);
 
-  const checkUserLoggedIn = isLoggedIn => {
+  const checkUserLoggedIn = (isLoggedIn, pin) => {
     if (isLoggedIn) {
-      navigation.navigate('Enter Pin Screen');
+      if (!pin) {
+        navigation.navigate('Set Pin Screen');
+      } else {
+        navigation.navigate('Enter Pin Screen');
+      }
       console.log('logged in');
     } else {
       navigation.navigate('Privacy Policy Screen');
@@ -56,10 +71,15 @@ const PreloadScreen = ({navigation}) => {
 
   React.useEffect(() => {
     let userIsLoggedIn = true;
+    let defaultRpc = '';
     const currentVersion = getVersion();
     const getData = async () => {
-      // AsyncStorage.clear();
+      AsyncStorage.removeItem('triedRPCs');
       const version = await getAppVersion();
+      console.log('version---------', version);
+      await AsyncStorage.setItem('worker_key', version?.worker_key);
+      const activeConnections = await AsyncStorage?.getItem('swap_sessions');
+      setActiveConnections(JSON.parse(activeConnections));
       if (version) {
         setAppInfo(version);
       }
@@ -68,11 +88,12 @@ const PreloadScreen = ({navigation}) => {
         // value previously stored
         setPin(pin);
         // navigation.navigate('Start Screen');
-      } else {
-        userIsLoggedIn = false;
       }
-      console.log(pin);
 
+      const accountBalances = await AsyncStorage.getItem('accountBalances');
+      if (accountBalances) {
+        setAccountBalances(JSON.parse(accountBalances));
+      }
       const accounts = await AsyncStorage.getItem('accounts');
       if (accounts !== null) {
         // value previously stored
@@ -80,12 +101,12 @@ const PreloadScreen = ({navigation}) => {
       } else {
         userIsLoggedIn = false;
       }
-      console.log(accounts);
+      console.log('accounts',accounts);
 
       const activeAccount = await AsyncStorage.getItem('activeAccount');
       if (activeAccount !== null) {
         const userToken = await AsyncStorage.getItem('token');
-        const currentAccount = JSON.parse(activeAccount);
+        const currentAccount = parseAccount(activeAccount);
         if (!userToken) {
           console.log('------------calling login api');
           await userLogin
@@ -108,13 +129,13 @@ const PreloadScreen = ({navigation}) => {
               ...userResponse,
               ...currentAccount,
             };
-            console.log('---------temp account', tempAccount);
+            console.log('---------temp account', defaultRpc);
             if (userResponse?.isDefaultRPC) {
-              await AsyncStorage.setItem('node', 'wss://s2.ripple.com/');
               // await AsyncStorage.setItem(
               //   'node',
-              //   'wss://testnet.xrpl-labs.com/',
+              //   'wss://still-dark-gas.xrp-mainnet.quiknode.pro/f9dcecb9b67cabf67e067252b0eeb99947496f00/',
               // );
+              await AsyncStorage.setItem('node', defaultRpc);
             }
             setActiveAccount(tempAccount);
             AsyncStorage.setItem(
@@ -125,24 +146,62 @@ const PreloadScreen = ({navigation}) => {
             });
           })
           .catch(err => {
-            setActiveAccount(JSON.parse(activeAccount));
-            AsyncStorage.setItem(
-              'activeAccount',
-              JSON.stringify(activeAccount),
-            ).then(() => {
-              console.log('active account set asynchronously');
-            });
+            if (err?.message == 'User with this wallet address not found') {
+              const parsedAccounts = JSON.parse(accounts);
+              let updatedAccounts = parsedAccounts?.filter(
+                account => account?.id != currentAccount?.id,
+              );
+              if (updatedAccounts.length === 0) {
+                AsyncStorage.clear();
+                setAccounts([]);
+                setNewPadlock();
+                setTimeout(() => navigation.navigate('Start Screen'), 500);
+              } else {
+                userLogin
+                  .mutateAsync({
+                    wallet_address: updatedAccounts[0]?.classicAddress,
+                    password: updatedAccounts[0]?.password,
+                  })
+                  .then(response => {
+                    setActiveAccount(updatedAccounts[0]);
+                    AsyncStorage.setItem(
+                      'activeAccount',
+                      JSON.stringify(updatedAccounts[0]),
+                    ).then(() => {
+                      console.log('active account set asynchronously');
+                    });
+                    setAccounts(updatedAccounts);
+                    AsyncStorage.setItem(
+                      'accounts',
+                      JSON.stringify(updatedAccounts),
+                    ).then(() => {
+                      console.log('accounts set asynchronously');
+                    });
+                  })
+                  .catch(err => {
+                    console.log('----------account login erorr', err);
+                  });
+              }
+            } else {
+              setActiveAccount(parseAccount(activeAccount));
+              AsyncStorage.setItem('activeAccount', activeAccount).then(() => {
+                console.log('active account set asynchronously');
+              });
+            }
             console.log('---------------get logged in user', err);
           });
       } else {
         userIsLoggedIn = false;
       }
-      console.log(activeAccount);
-
       const theme = await AsyncStorage.getItem('theme');
       if (theme !== null) {
         // value previously stored
-        toggleTheme(theme);
+        // if (systemTheme === 'dark') {
+          if (theme === 'dark') {
+          toggleTheme('dark');
+        } else {
+          toggleTheme(theme);
+        }
       }
 
       const totalBalanceCurrency = await AsyncStorage.getItem(
@@ -165,7 +224,7 @@ const PreloadScreen = ({navigation}) => {
         ) {
           navigation.navigate('Force Update Screen');
         } else {
-          checkUserLoggedIn(userIsLoggedIn);
+          checkUserLoggedIn(userIsLoggedIn, pin);
         }
       } else {
         if (
@@ -174,35 +233,67 @@ const PreloadScreen = ({navigation}) => {
         ) {
           navigation.navigate('Force Update Screen');
         } else {
-          checkUserLoggedIn(userIsLoggedIn);
+          checkUserLoggedIn(userIsLoggedIn, pin);
         }
       }
     };
 
-    const handleDynamicLinks = async link => {
-      // console.log('-------------link ---------------', link);
-      let decodedLink = decodeURIComponent(link?.url);
-      setDynamicLink(decodedLink);
-      // console.log('----------------------1234 app running issue----------', userIsLoggedIn)
-      if (userIsLoggedIn) {
-        navigation.navigate('Home Screen');
+    // const handleDynamicLinks = async link => {
+    //   // console.log('-------------link ---------------', link);
+    //   let decodedLink = decodeURIComponent(link?.url);
+    //   setDynamicLink(decodedLink);
+    //   // console.log('----------------------1234 app running issue----------', userIsLoggedIn)
+    //   if (userIsLoggedIn) {
+    //     navigation.navigate('Home Screen');
+    //   }
+    // };
+
+    const handleDynamicLinks = async (link) => {
+       console.log('-------------link ---------------', link);
+      try {
+        // Check if the link object exists and contains a valid URL
+        if (!link?.url) {
+          console.error('Dynamic link is invalid or missing URL');
+          return; // Exit early if the link is not valid
+        }
+    
+        let decodedLink = decodeURIComponent(link.url);  // Decode the URL safely
+        setDynamicLink(decodedLink); // Update the state with the decoded link
+    
+        // Navigate to the home screen if the user is logged in
+        if (userIsLoggedIn) {
+          console.log("i am called dynamic link",userIsLoggedIn)
+          // navigation.navigate('Home Screen');
+        }
+      } catch (error) {
+        console.error('Error handling dynamic link:', error);
       }
     };
 
+    getRpcs().then(rpc => {
+      setRpcUrls(rpc?.rpc);
+      defaultRpc = rpc?.rpc?.[0];
+    });
     getData().catch(e => console.log(e.messsage));
 
     dynamicLinks()
       .getInitialLink()
       .then(link => {
         // console.log('------------------inside iniital link-------', link);
+        if (link?.url) {
         let decodedLink = decodeURIComponent(link?.url);
         setDynamicLink(decodedLink);
+        }
         //   console.log('----------------------1234 foreground issue----------')
       });
 
     const unsubscribe = dynamicLinks().onLink(handleDynamicLinks);
     return () => unsubscribe();
   }, []);
+
+  React.useEffect(() => {
+    toggleTheme(theme === 'dark' ? 'dark' : 'light');
+  }, [systemTheme]);
 
   return (
     <GestureHandlerRootView>
@@ -230,7 +321,7 @@ const styling = colors =>
       justifyContent: 'space-between',
       height: '100%',
       paddingHorizontal: 0,
-      // fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
+      // fontFamily: Platform.OS === "ios" ? "LeagueSpartanMedium" : "LeagueSpartanMedium", fontWeight: Platform.OS === "ios" ? "bold" : "100",
     },
     introImage: {
       width: 366,

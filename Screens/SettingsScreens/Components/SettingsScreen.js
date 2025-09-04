@@ -1,5 +1,4 @@
 import React from 'react';
-
 import {
   SafeAreaView,
   ScrollView,
@@ -8,12 +7,18 @@ import {
   StyleSheet,
   View,
   Text,
-  TouchableOpacity,
   Modal,
-  TextInput,
+  TouchableOpacity,
   Linking,
   Platform,
+  Pressable,
 } from 'react-native';
+import {
+  check,
+  openSettings,
+  PERMISSIONS,
+  RESULTS,
+} from 'react-native-permissions';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -24,8 +29,35 @@ import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Entypo from 'react-native-vector-icons/Entypo';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
-
+import ScanSetting from './ScanSetting';
+import QRCodeScanner from 'react-native-qrcode-scanner';
+import {RNCamera} from 'react-native-camera';
+import Alert from '../../../components/Alert';
+import {getPaymentInfo} from '../../../utils/magazine';
+import {
+  AboutDarkIcon,
+  AboutLightIcon,
+  AccountDarkIcon,
+  AccountLightIcon,
+  BuyDarkIcon,
+  BuyLightIcon,
+  NodesDarkIcon,
+  NodesLightIcon,
+  NotificationDarkIcon,
+  NotificationLightIcon,
+  OurWebsiteDarkIcon,
+  OurWebsiteLightIcon,
+  ScanDarkIcon,
+  ScanLightIcon,
+  SecurityDarkIcon,
+  SecurityLightIcon,
+  SocialDarkIcon,
+  SocialLightIcon,
+  ThemeDarkIcon,
+  ThemeLightIcon,
+} from '../../../assets/img/new-design';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { openInAppBrowser } from '../../../utils/functions/InAppBrowserService';
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
 AntDesign.loadFont();
@@ -37,358 +69,508 @@ Entypo.loadFont();
 const SettingsScreen = ({navigation}) => {
   const {activeAccount, theme} = useStore();
 
+  const toggleTheme = useStore(state => state.toggleTheme);
+
+  const [isScanQR, setIsScanQR] = React.useState(false);
+  const [scanSettingOpen, setScanSettingOpen] = React.useState(false);
+  const [isPermission, setIsPemission] = React.useState(false);
+  const [isErrorAlert, setIsErrorAlert] = React.useState(false);
+  const [alertMsg, setAlertMsg] = React.useState('');
+  const [scannedData, setScannedData] = React.useState(null);
+  const [isDataLoading, setIsDataLoading] = React.useState(false);
   let colors = light;
   if (theme === 'dark') {
     colors = dark;
   }
+  const styles = styling(colors, theme);
 
-  const styles = styling(colors);
+  const changeTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    toggleTheme(newTheme);
+    AsyncStorage.setItem('theme', newTheme).then(() => {
+      console.log('theme set asynchronously',newTheme);
+    });
+  };
 
+  const onSuccess = async e => {
+    const parsedData = JSON.parse(e?.data);
+    try {
+      setIsScanQR(false);
+      setScanSettingOpen(true);
+      setIsDataLoading(true);
+      const responseResult = await getPaymentInfo(parsedData);
+      console.log('responseResult-------', responseResult);
+      setIsDataLoading(false);
+      console.log('parsed data-------', parsedData, responseResult);
+      setScannedData({qr_id: parsedData?.qr_id, ...responseResult});
+    } catch (e) {
+      setScanSettingOpen(false);
+      setIsDataLoading(false);
+      setIsErrorAlert(true);
+      setAlertMsg('Invalid Payment Details!');
+    }
+  };
+
+  React.useEffect(() => {}, [isScanQR]);
   return (
     <GestureHandlerRootView>
       <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
+            <Text style={styles.headerHeading}>Settings</Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
           <ScrollView style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('Account Settings Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <MaterialCommunityIcons
-                    name={'account'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.accountIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Account</Text>
+            <View style={[styles.generalSetting]}>
+              <Text style={styles.headingText}>General</Text>
+              <View style={[styles.settingCard]}>
+                <Pressable
+                  onPress={() => navigation.navigate('Account Settings Screen')}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? (
+                      <AccountDarkIcon />
+                    ) : (
+                      <AccountLightIcon />
+                    )}
+                    <View style={[styles.column, {}]}>
+                      <Text style={styles.settingCardText}>Account Name</Text>
+                      <Text style={styles.settingCardDesc}>
+                        {activeAccount?.classicAddress?.substr(0, 6) +
+                          '****' +
+                          activeAccount?.classicAddress?.slice(-6)}
+                      </Text>
+                    </View>
+                  </View>
                   <AntDesign
                     name={'right'}
-                    size={30}
+                    size={16}
                     color={colors.text}
                     style={styles.visitIcon}
                   />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('Alerts Settings Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <Ionicons
-                    name={'notifications'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.accountIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Alerts</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() =>
-                  navigation.navigate('Appearance Settings Screen')
-                }>
-                <View style={styles.buttonWrapper}>
-                  <AntDesign
-                    name={'eye'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.accountIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Appearance</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('Node Settings Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <Entypo
-                    name={'network'}
-                    size={25}
-                    color={colors.text}
-                    style={styles.aboutIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Nodes</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('Privacy Settings Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <FontAwesome
-                    name={'lock'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.securityIcon}
-                  />
-                  <Text style={styles.actionButtonText}>
-                    Privacy & Security
-                  </Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('Help Settings Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <FontAwesome
-                    name={'headphones'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.supportIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Help & Support</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => navigation.navigate('About Settings Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <AntDesign
-                    name={'questioncircle'}
-                    size={25}
-                    color={colors.text}
-                    style={styles.aboutIcon}
-                  />
-                  <Text style={styles.actionButtonText}>About</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => {
-                  Linking?.openURL('https://twitter.com/xrphealthcare');
-                }}>
-                <View style={styles.buttonWrapper}>
-                  <AntDesign
-                    name={'twitter'}
-                    size={25}
-                    color={colors.text}
-                    style={styles.aboutIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Twitter</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => {
-                  Linking?.openURL('https://t.me/XRPHealthcare');
-                }}>
-                <View style={styles.buttonWrapper}>
-                  <FontAwesome
-                    name={'telegram'}
-                    size={25}
-                    color={colors.text}
-                    style={styles.aboutIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Telegram</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => {
-                  Linking?.openURL('https://xrphealthcare.com/news');
-                }}>
-                <View style={styles.buttonWrapper}>
-                  <Image
-                    source={
-                      theme === 'dark'
-                        ? require('../../../assets/img/newspaper-w.png')
-                        : require('../../../assets/img/newspaper-b.png')
-                    }
-                    alt="news"
+                </Pressable>
+                <View style={styles.settingCardDivider} />
+                <View style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? <ThemeDarkIcon /> : <ThemeLightIcon />}
+                    <Text style={styles.settingCardText}>Dark Mode</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => changeTheme()}
                     style={{
-                      height: 25,
-                      width: 25,
-                      marginLeft: 3,
-                      marginRight: 24,
-                    }}
-                  />
-                  <Text style={styles.actionButtonText}>Our News</Text>
-                  <AntDesign
-                    name={'right'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.visitIcon}
-                  />
+                      height: 20,
+                      width: 40,
+                      backgroundColor:
+                        theme === 'dark' ? '#45EE601A' : '#CCCCCC1A',
+                      marginLeft: 'auto',
+                      borderRadius: 10,
+                      paddingHorizontal: 2,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent:
+                        theme === 'dark' ? 'flex-end' : 'flex-start',
+                    }}>
+                    <View
+                      style={{
+                        height: 16,
+                        width: 16,
+                        borderRadius: 16,
+                        backgroundColor:
+                          theme === 'dark' ? '#03F982' : '#CCCCCC',
+                      }}
+                    />
+                  </Pressable>
                 </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => {
-                  Linking?.openURL('http://www.xrphealthcare.com/');
-                }}>
-                <View style={styles.buttonWrapper}>
-                  <Image
-                    source={
-                      theme === 'dark'
-                        ? require('../../../assets/img/global-w.png')
-                        : require('../../../assets/img/global-b.png')
-                    }
-                    alt="news"
+                {/* <View style={styles.settingCardDivider} />
+                <View style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? (
+                      <NotificationDarkIcon />
+                    ) : (
+                      <NotificationLightIcon />
+                    )}
+                    <Text style={styles.settingCardText}>
+                      Push Notification
+                    </Text>
+                  </View>
+                  <View
                     style={{
-                      height: 25,
-                      width: 25,
-                      marginLeft: 3,
-                      marginRight: 24,
-                    }}
-                  />
-                  <Text style={styles.actionButtonText}>Our Website</Text>
+                      height: 20,
+                      width: 40,
+                      backgroundColor: '#45EE601A',
+                      marginLeft: 'auto',
+                      borderRadius: 10,
+                      paddingHorizontal: 2,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                    }}>
+                    <View
+                      style={{
+                        height: 16,
+                        width: 16,
+                        borderRadius: 16,
+                        backgroundColor: '#03F982',
+                      }}
+                    />
+                  </View>
+                </View> */}
+              </View>
+            </View>
+            <View style={[styles.generalSetting]}>
+              <Text style={styles.headingText}>Wallet</Text>
+              <View style={[styles.settingCard]}>
+                <Pressable
+                  onPress={() => navigation.navigate('Node Settings Screen')}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? <NodesDarkIcon /> : <NodesLightIcon />}
+                    <Text style={styles.settingCardText}>Nodes</Text>
+                  </View>
                   <AntDesign
                     name={'right'}
-                    size={30}
+                    size={16}
                     color={colors.text}
                     style={styles.visitIcon}
                   />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                style={styles.settingsButton}
-                onPress={() => {
-                  Linking?.openURL(
-                    'https://issuu.com/xrphealthcare/docs/xrp_healthcare_magazine_issue_1',
-                  );
-                }}>
-                <View style={styles.buttonWrapper}>
-                  <Image
-                    source={
-                      theme === 'dark'
-                        ? require('../../../assets/img/magazine-w.png')
-                        : require('../../../assets/img/magazine-b.png')
-                    }
-                    alt="news"
-                    style={{
-                      height: 25,
-                      width: 25,
-                      marginLeft: 3,
-                      marginRight: 24,
-                    }}
-                  />
-                  <Text style={styles.actionButtonText}>
-                    XRP Healthcare Magazine
-                  </Text>
+                </Pressable>
+                <View style={styles.settingCardDivider} />
+                <Pressable
+                  onPress={() => setIsScanQR(true)}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? <ScanDarkIcon /> : <ScanLightIcon />}
+                    <Text style={styles.settingCardText}>Scan QR</Text>
+                  </View>
                   <AntDesign
                     name={'right'}
-                    size={30}
+                    size={16}
                     color={colors.text}
                     style={styles.visitIcon}
                   />
-                </View>
-              </TouchableOpacity>
+                </Pressable>
+              </View>
             </View>
-            <View style={styles.hl}></View>
+            <View style={[styles.generalSetting]}>
+              <Text style={styles.headingText}>Help & Security</Text>
+              <View style={[styles.settingCard]}>
+                <Pressable
+                  onPress={() => navigation.navigate('Privacy Settings Screen')}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? (
+                      <SecurityDarkIcon />
+                    ) : (
+                      <SecurityLightIcon />
+                    )}
+                    <Text style={styles.settingCardText}>
+                      Privacy & Security
+                    </Text>
+                  </View>
+                  <AntDesign
+                    name={'right'}
+                    size={16}
+                    color={colors.text}
+                    style={styles.visitIcon}
+                  />
+                </Pressable>
+                <View style={styles.settingCardDivider} />
+                <Pressable
+                  onPress={() => navigation.navigate('Help Settings Screen')}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? <NodesDarkIcon /> : <NodesLightIcon />}
+                    <Text style={styles.settingCardText}>Help & Support</Text>
+                  </View>
+                  <AntDesign
+                    name={'right'}
+                    size={16}
+                    color={colors.text}
+                    style={styles.visitIcon}
+                  />
+                </Pressable>
+              </View>
+            </View>
+            <View style={[styles.generalSetting]}>
+              <Text style={styles.headingText}>About</Text>
+              <View style={[styles.settingCard]}>
+                <Pressable
+                  onPress={() => navigation.navigate('About Settings Screen')}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? (
+                      <Image
+                        source={require('../../../assets/img/new-design/settings/settings-dark.png')}
+                        style={styles.aboutIcon}
+                      />
+                    ) : (
+                      <Image
+                        source={require('../../../assets/img/new-design/settings/settings-light.png')}
+                        style={styles.aboutIcon}
+                      />
+                    )}
+                    <Text style={styles.settingCardText}>About XRPH</Text>
+                  </View>
+                  <AntDesign
+                    name={'right'}
+                    size={16}
+                    color={colors.text}
+                    style={styles.visitIcon}
+                  />
+                </Pressable>
+                <View style={styles.settingCardDivider} />
+                <Pressable
+                  onPress={() => {
+                    // Linking?.openURL('https://xrphealthcare.ai/buy-xrph');
+                    openInAppBrowser('https://xrphealthcare.ai/buy-xrph',colors)
+                  }}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? <BuyDarkIcon /> : <BuyLightIcon />}
+                    <Text style={styles.settingCardText}>Buy XRPH</Text>
+                  </View>
+                  <AntDesign
+                    name={'right'}
+                    size={16}
+                    color={colors.text}
+                    style={styles.visitIcon}
+                  />
+                </Pressable>
+                <View style={styles.settingCardDivider} />
+                <Pressable
+                  onPress={() => {
+                    // Linking?.openURL('http://www.xrphealthcare.ai/');
+                    openInAppBrowser('http://www.xrphealthcare.ai/',colors)
+                  }}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? (
+                      <OurWebsiteDarkIcon />
+                    ) : (
+                      <OurWebsiteLightIcon />
+                    )}
+                    <Text style={styles.settingCardText}>Our Website</Text>
+                  </View>
+                  <AntDesign
+                    name={'right'}
+                    size={16}
+                    color={colors.text}
+                    style={styles.visitIcon}
+                  />
+                </Pressable>
+                <View style={styles.settingCardDivider} />
+                <Pressable
+                  onPress={() => {
+                    // Linking?.openURL('https://linktr.ee/xrphealthcare');
+                    openInAppBrowser('https://linktr.ee/xrphealthcare',colors)
+                  }}
+                  style={[styles.settingCardItem]}>
+                  <View
+                    style={[
+                      styles.row,
+                      {
+                        gap: 12,
+                      },
+                    ]}>
+                    {theme === 'dark' ? (
+                      <SocialDarkIcon />
+                    ) : (
+                      <SocialLightIcon />
+                    )}
+                    <Text style={styles.settingCardText}>Social Media</Text>
+                  </View>
+                  <AntDesign
+                    name={'right'}
+                    size={16}
+                    color={colors.text}
+                    style={styles.visitIcon}
+                  />
+                </Pressable>
+              </View>
+            </View>
+            <View style={{height: 10}} />
           </ScrollView>
-          <Navbar activeIcon="settings" navigation={navigation} />
+          <ScanSetting
+            scanSettingOpen={scanSettingOpen}
+            setScanSettingOpen={setScanSettingOpen}
+            navigation={navigation}
+            scannedData={scannedData}
+            dataLoading={isDataLoading}
+          />
+          <Modal visible={isPermission} transparent={true}>
+            <View style={styles.addAccountModalWrapper}>
+              <View style={styles.sendModalHeader}>
+                <View style={styles.sendModalHeaderSpacer}></View>
+                <Text style={styles.sendModalHeaderText}>
+                  Camera Permission
+                </Text>
+                <TouchableOpacity
+                  style={styles.sendModalCloseButton}
+                  onPress={() => setIsPemission(false)}>
+                  <Text style={styles.sendModalHeaderText}>X</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.addAccountModalActionsWrapper}>
+                <Text style={styles.addAccountModalDirections}>
+                  Access to the camera has been denied. You can enable
+                  permissions in the Settings.
+                </Text>
+                <View style={styles.addAccountActionButtons}>
+                  <TouchableOpacity
+                    style={styles.addAccountOkButton}
+                    onPress={() =>
+                      openSettings().then(() => {
+                        setIsPemission(false);
+                      })
+                    }>
+                    <Text style={styles.addAccountOkButtonText}>
+                      Open Settings
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          <Modal visible={isScanQR} transparent={true}>
+            <View style={styles.cameraParentWrapper}>
+              <View style={styles.cameraModalHeader}>
+                <View style={styles.sendModalHeaderSpacer}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setIsScanQR(false);
+                    }}
+                    style={{
+                      marginTop: 8,
+                      marginLeft: -10,
+                    }}>
+                    <Feather
+                      name={'chevron-left'}
+                      size={35}
+                      color={colors.text}
+                      style={styles.backIcon}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.sendModalHeaderTextLarge}>
+                  {' '}
+                  Scan Wallet Address
+                </Text>
+                <View style={styles.sendModalHeaderSpacer}></View>
+              </View>
+              <View style={styles.cameraWrapper}>
+                <QRCodeScanner
+                  onRead={onSuccess}
+                  flashMode={RNCamera.Constants.FlashMode.auto}
+                  cameraStyle={styles.cameraContainer}
+                  showMarker={true}
+                />
+              </View>
+              <View>
+                <Text style={styles.cameraText}>
+                  Keep your phone steady on QR Code to scan successfully
+                </Text>
+              </View>
+            </View>
+          </Modal>
+          <Alert
+            isOpen={isErrorAlert}
+            type={'error'}
+            message={alertMsg}
+            icon={'close'}
+            setIsOpen={setIsErrorAlert}
+            top={50}
+          />
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
+      position: 'relative',
     },
     hl: {
       width: '100%',
       height: 3,
       backgroundColor: colors.text_light,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
     },
     headerImage: {
       width: 50,
@@ -400,30 +582,97 @@ const styling = colors =>
       width: '100%',
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      paddingHorizontal: 16,
+      paddingTop: 24,
+      paddingBottom: 30,
+      zIndex: 1000,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomRightRadius: 32,
+      borderBottomLeftRadius: 32,
     },
+    headerHeading: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -80,
+    },
+
+    generalSetting: {
+      marginTop: 24,
+    },
+
+    headingText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text_gray,
+    },
+
+    settingCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#414141' : '#ededed',
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      marginTop: 16,
+      flexDirection: 'column',
+      paddingVertical: 4,
+      paddingHorizontal: 14,
+      zIndex: 100,
+    },
+
+    settingCardItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 12,
+    },
+
+    settingCardText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    settingCardDesc: {
+      fontSize: 12,
+      fontWeight: '400',
+      color: colors.text,
+    },
+
+    settingCardDivider: {
+      height: 1,
+      backgroundColor: theme === 'dark' ? '#414141' : '#F8F8F8',
+    },
+
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'right',
       marginTop: 5,
     },
     accountNameText: {
       fontSize: 16,
       color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginTop: 10,
       textAlign: 'right',
     },
     settingsWrapper: {
       width: '100%',
-      paddingHorizontal: 5,
+      paddingHorizontal: 20,
       paddingVertical: 1,
-      backgroundColor: colors.bg,
+      // backgroundColor: colors.bg_gray,
       borderRadius: 10,
     },
     settingsButtonContainer: {
@@ -447,8 +696,9 @@ const styling = colors =>
     actionButtonText: {
       color: colors.text,
       fontSize: 18,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '400' : '100',
     },
     visitIcon: {
       position: 'absolute',
@@ -466,8 +716,130 @@ const styling = colors =>
       marginRight: 22,
     },
     aboutIcon: {
-      marginLeft: 3,
-      marginRight: 22,
+      height: 24,
+      width: 24,
+    },
+
+    cameraParentWrapper: {
+      backgroundColor: colors.bg,
+      height: '100%',
+      width: '100%',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    cameraModalHeader: {
+      position: 'absolute',
+      width: '100%',
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 40,
+      marginBottom: 30,
+      zIndex: 1000,
+      top: 0,
+    },
+    cameraWrapper: {
+      position: 'absolute',
+      alignSelf: 'center',
+      height: '100%',
+    },
+    cameraContainer: {
+      // height: 140,
+      // width: '60%',
+      marginLeft: 'auto',
+      marginRight: 'auto',
+    },
+    cameraText: {
+      textAlign: 'center',
+      color: colors.text,
+      marginBottom: 50,
+      width: '90%',
+      textAlign: 'center',
+    },
+    sendModalHeaderTextLarge: {
+      fontSize: 22,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      color: colors.text,
+      textAlign: 'right',
+      paddingRight: 10,
+      paddingTop: 10,
+    },
+    sendModalHeaderSpacer: {
+      width: 60,
+    },
+    addAccountModalWrapper: {
+      backgroundColor: colors.bg,
+      width: '96%',
+      // height: 180,
+      marginLeft: 'auto',
+      marginRight: 'auto',
+      marginTop: 120,
+      elevation: 5,
+      shadowColor: '#000000',
+      shadowOffset: {width: 5, height: 4},
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      borderRadius: 10,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      zIndex: 3000,
+    },
+    sendModalHeaderSpacer: {
+      width: 60,
+    },
+    sendModalHeaderText: {
+      fontSize: 20,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      color: colors.text,
+      textAlign: 'right',
+      paddingRight: 10,
+    },
+    sendModalHeader: {
+      width: '100%',
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 40,
+      marginBottom: 30,
+    },
+    addAccountModalActionsWrapper: {
+      paddingHorizontal: 10,
+      width: '100%',
+      flexDirection: 'column',
+      alignItems: 'center',
+    },
+    addAccountModalDirections: {
+      textAlign: 'left',
+      fontSize: 16,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanLight',
+      marginBottom: 20,
+    },
+    addAccountOkButton: {
+      width: 150,
+      height: 50,
+      alignItems: 'center',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      marginBottom: 20,
+    },
+    addAccountOkButtonText: {
+      textAlign: 'center',
+      fontSize: 16,
+      color: colors.bg,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
   });
 

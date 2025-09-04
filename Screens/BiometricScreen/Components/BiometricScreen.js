@@ -28,6 +28,7 @@ import checkConnectionStatus from '../../StartScreen/Handlers/xrpl_connection_st
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import {trigger} from 'react-native-haptic-feedback';
 import PendingTouch from '../../../assets/img/pending-touch.svg';
+import {switchRPC} from '../../HomeScreen/Handlers/switch_rpc';
 
 const xrpl = require('xrpl');
 
@@ -39,10 +40,11 @@ Feather.loadFont();
 Ionicons.loadFont();
 
 const BiometricScreen = ({route, navigation}) => {
-  let {activeAccount, theme, hepticOptions, node} = useStore();
+  let {activeAccount, theme, hepticOptions, node, rpcUrls} = useStore();
   const rnBiometrics = new ReactNativeBiometrics();
 
   const setToken = useStore(state => state.setToken);
+  const setNode = useStore(state => state.setNode);
   const [isConnected, setIsConnected] = React.useState(false);
   const [isAmountRequest, setIsAmountRequest] = useState(false);
 
@@ -55,21 +57,29 @@ const BiometricScreen = ({route, navigation}) => {
 
   const styles = styling(colors);
 
-  React.useEffect(() => {
-    if (activeAccount.balances.length > 0) {
-    console.log("setTOken in biometric screen");
-      setToken(activeAccount.balances[0]);
-    }
-
-    checkConnectionStatus(node).then(res => {
+  const detectConnection = rpcNode => {
+    checkConnectionStatus(rpcNode).then(res => {
       if (res) {
         setIsConnected(true);
         console.log('connected');
       } else {
         setIsConnected(false);
+        // switchRPC(rpcNode, rpcUrls).then(res => {
+        //   setNode(res);
+        //   detectConnection(res);
+        // });
         console.log('not connected');
       }
     });
+  };
+
+  React.useEffect(() => {
+    if (activeAccount.balances.length > 0) {
+      console.log('setTOken in biometric screen');
+      setToken(activeAccount.balances[0]);
+    }
+
+    detectConnection(node);
   }, []);
 
   const enableBioMetric = () => {
@@ -143,7 +153,7 @@ const styling = colors =>
       marginTop: 20,
       color: colors.text,
       fontSize: 28,
-      fontWeight: 700,
+      fontWeight: '700',
     },
     touch: {
       marginLeft: 'auto',
@@ -153,14 +163,14 @@ const styling = colors =>
     question: {
       color: colors.text,
       fontSize: 16,
-      fontWeight: 700,
+      fontWeight: '700',
       marginTop: 50,
       textAlign: 'center',
     },
     description: {
       color: colors.light_text,
       fontSize: 14,
-      fontWeight: 400,
+      fontWeight: '400',
       marginTop: 12,
       textAlign: 'center',
     },
@@ -183,12 +193,12 @@ const styling = colors =>
     buttonTextPrimary: {
       color: colors.bg,
       fontSize: 18,
-      fontWeight: 500,
+      fontWeight: '500',
     },
     buttonTextSecondary: {
       color: colors.text,
       fontSize: 18,
-      fontWeight: 500,
+      fontWeight: '500',
     },
   });
 

@@ -110,7 +110,7 @@ const UnstakeSheet = props => {
             <Text
               style={{
                 fontSize: 24,
-                fontWeight: 700,
+                fontWeight: '700',
                 color: colors.text,
               }}>
               Alert
@@ -174,14 +174,14 @@ const styling = colors =>
     },
     heading: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '700',
+      fontWeight: '700',
       color: colors.dark_text,
       marginTop: 32,
       textAlign: 'center',
     },
     desc: {
       fontSize: 14,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
+      fontWeight: '400',
       color: colors.dark_gray,
       marginTop: 12,
       textAlign: 'center',
@@ -197,7 +197,7 @@ const styling = colors =>
     },
     stakeButtonText: {
       fontSize: 18,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '500',
+      fontWeight: '500',
       color: '#fff',
       textAlign: 'center',
     },
@@ -210,7 +210,7 @@ const styling = colors =>
     },
     unstakeButtonText: {
       fontSize: 18,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '500',
+      fontWeight: '500',
       color: colors.text,
       textAlign: 'center',
     },

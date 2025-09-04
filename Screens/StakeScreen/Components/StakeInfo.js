@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {StyleSheet, View, Text, Platform} from 'react-native';
+import {StyleSheet, View, Text, Pressable} from 'react-native';
 import _ from 'lodash';
 import {light, dark} from '../../../assets/colors/colors';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -10,8 +10,6 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import GradientText from '../../../components/GradientText';
-import LinearGradient from 'react-native-linear-gradient';
 import {
   useGetDailyRewards,
   useGetTotalStake,
@@ -27,7 +25,7 @@ Octicons.loadFont();
 Feather.loadFont();
 Ionicons.loadFont();
 
-const StakeInfo = () => {
+const StakeInfo = ({home, navigation}) => {
   let {theme, activeAccount} = useStore();
 
   const {
@@ -70,69 +68,74 @@ const StakeInfo = () => {
 
   return (
     <React.Fragment>
-      <LinearGradient
-        colors={['#37C3A6', '#AF45EE']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 0}}
-        style={styles.linearGradient}>
-        <View style={styles.stakeInfoCard}>
-          <Text style={styles.stakingInfoCardHeading}>Staking Info</Text>
-          <View style={styles.flex}>
-            <View>
-              <Text style={styles.stakedlabel}>My Stake</Text>
-              <GradientText
-                colors={['#37C3A6', '#AF45EE']}
-                style={styles.gradientStaked}>
-                {userTotalStaked?.stakes?.totalAmount?.toFixed(2) || 0} XRPH
-              </GradientText>
-            </View>
-            <View style={{textAlign: 'right'}}>
-              <Text style={styles.totalStakedLabel}>Total Staked</Text>
-              <GradientText
-                colors={['#37C3A6', '#AF45EE']}
-                style={styles.gradientStakedLeft}>
-                {totalStaked?.totalAmount?.toFixed(2) || 0} XRPH
-              </GradientText>
+      <View style={styles.stakeInfoCard}>
+        <View style={[styles.flex, {marginTop: 0}]}>
+          <View>
+            <Text style={styles.stakedlabel}>My Stake</Text>
+            <Text style={styles.stakeValue}>
+              {userTotalStaked?.stakes?.totalAmount?.toFixed(2) || 0} XRPH
+            </Text>
+          </View>
+          <View style={{textAlign: 'right'}}>
+            <Text style={[styles.stakedlabel, {textAlign: 'right'}]}>
+              Total Staked
+            </Text>
+            <Text style={[styles.stakeValue]}>
+              {totalStaked?.totalAmount?.toFixed(2) || 0} XRPH
+            </Text>
+          </View>
+        </View>
+        <View style={styles.flex}>
+          <View>
+            <Text style={styles.stakedlabel}>Rewards Per Day</Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                marginTop: 6,
+              }}>
+              <Text style={[styles.gradientStaked, {color: '#03F982'}]}>
+                {dailyRewards?.rewardsClaimable > 0 ? '+' : ''}
+                {dailyRewards?.rewardsClaimable?.toFixed(2) || 0}
+              </Text>
+              <Text
+                style={[styles.stakeValue, {color: colors.text, marginTop: 0}]}>
+                XRPH{' '}
+              </Text>
+              {dailyRewards?.rewardsClaimable > 0 && (
+                <ArrowUp height={14} width={14} />
+              )}
             </View>
           </View>
-          <View style={styles.flex}>
-            <View>
-              <Text style={styles.stakedlabel}>Rewards Per Day</Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                }}>
-                <Text style={[styles.gradientStaked, {color: '#1DAC77'}]}>
-                  {dailyRewards?.rewardsClaimable > 0 ? '+' : ''}
-                  {dailyRewards?.rewardsClaimable?.toFixed(2) || 0}
-                </Text>
-                <GradientText
-                  colors={['#37C3A6', '#AF45EE']}
-                  style={styles.gradientStaked}>
-                  {' '}
-                  XRPH{' '}
-                </GradientText>
-                {dailyRewards?.rewardsClaimable > 0 && (
-                  <ArrowUp height={14} width={14} />
-                )}
-              </View>
-            </View>
-            <View style={{textAlign: 'right'}}>
-              <Text style={styles.totalStakedLabel}>Rewards Claimed</Text>
-              <GradientText
-                colors={['#37C3A6', '#AF45EE']}
-                style={styles.gradientStakedLeft}>
-                {Number(userRewards?.rewardsClaimed)?.toFixed(2) || 0} XRPH
-              </GradientText>
-            </View>
+          <View style={{textAlign: 'right'}}>
+            <Text style={[styles.stakedlabel, {textAlign: 'right'}]}>
+              Rewards Claimed
+            </Text>
+            <Text
+              style={[
+                styles.stakeValue,
+                {textAlign: 'right', color: colors.text},
+              ]}>
+              {~~Number(userRewards?.rewardsClaimed)?.toFixed(2) || 0} XRPH
+            </Text>
           </View>
+        </View>
+        {home ? (
+          <Pressable
+            style={[styles.actionButton]}
+            onPress={() => {
+              navigation.navigate('Stake Screen');
+            }}>
+            <Text style={[styles.actionButtonText]}>View Stake</Text>
+          </Pressable>
+        ) : (
           <View style={styles.stakingInfoCardDesc}>
             <Text
               style={[
                 styles.stakingInfoCardDescText,
                 {
-                  fontWeight: 400,
+                  fontWeight: '400',
                   color: theme === 'dark' ? '#ccc' : '#686868',
                 },
               ]}>
@@ -142,15 +145,15 @@ const StakeInfo = () => {
               style={[
                 styles.stakingInfoCardDescText,
                 {
-                  fontWeight: 500,
+                  fontWeight: '500',
                   color: theme === 'dark' ? '#fff' : '#686868',
                 },
               ]}>
               {userRewards?.rewardsClaimable?.toFixed(2) || 0} XRPH
             </Text>
           </View>
-        </View>
-      </LinearGradient>
+        )}
+      </View>
     </React.Fragment>
   );
 };
@@ -158,52 +161,42 @@ const StakeInfo = () => {
 const styling = colors =>
   StyleSheet.create({
     flex: {
-      marginTop: 16,
+      marginTop: 14,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
     stakedlabel: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
-      color: colors.dark_gray,
+      fontWeight: '400',
+      color: colors.text_gray,
+    },
+    stakeValue: {
+      marginTop: 6,
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+      fontFamily: 'LeagueSpartanSemiBold',
     },
     gradientStaked: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '600',
+      fontWeight: '600',
     },
-    gradientStakedLeft: {
-      fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '600',
-      textAlign: 'right',
-    },
-    totalStakedLabel: {
-      fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
-      color: colors.dark_gray,
-      textAlign: 'right',
-    },
+
     totalStaked: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '600',
+      fontWeight: '600',
       color: colors.dark_gray,
       textAlign: 'right',
     },
 
     stakeInfoCard: {
       paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: colors.dark_bg,
+      paddingVertical: 14,
+      backgroundColor: colors.bg,
       borderRadius: 8,
-      borderWidth: 1,
-      borderStyle: 'solid',
-      borderColor: colors.light_gray_bg,
     },
-    stakingInfoCardHeading: {
-      fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '500',
-      color: colors.dark_text,
-    },
+
     stakingInfoCardDesc: {
       marginTop: 16,
       borderRadius: 4,
@@ -218,11 +211,29 @@ const styling = colors =>
     stakingInfoCardDescText: {
       fontSize: 12,
     },
-    linearGradient: {
-      width: '100%',
-      padding: 2,
-      borderRadius: 10,
-      marginTop: 6,
+
+    actionButton: {
+      borderRadius: 37,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.action_btn_grad,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: 14,
+      width: 86,
+      marginLeft: 'auto',
+      marginRight: 'auto',
+      paddingBottom: 4,
+      paddingTop: 2,
+      paddingHorizontal: 8,
+    },
+    actionButtonText: {
+      fontSize: 12,
+      fontWeight: '400',
+      fontFamily: 'LeagueSpartanMedium',
+      color: colors.primary,
     },
   });
 

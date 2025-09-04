@@ -61,25 +61,17 @@ const PadlockInitialScreen = ({navigation}) => {
     <GestureHandlerRootView>
       <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
-        <ScrollView
-          automaticallyAdjustKeyboardInsets={true}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            minHeight: '100%',
-          }}>
-          <View style={styles.bg}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Start Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.bg}>
+          <View style={[styles.column, {gap: 10}]}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Start Screen')}>
+              <Feather
+                name={'chevron-left'}
+                size={35}
+                color={colors.text}
+                style={styles.backIcon}
+              />
+            </TouchableOpacity>
             <Image
               style={styles.headerImage}
               source={
@@ -98,36 +90,42 @@ const PadlockInitialScreen = ({navigation}) => {
                 extremely valuable and should be kept private.
               </Text>
             </View>
-
-            <View style={styles.padlock}>
-              <PadlockRow padlock={padlock} letter={'A'} />
-              <PadlockRow padlock={padlock} letter={'B'} />
-              <PadlockRow padlock={padlock} letter={'C'} />
-              <PadlockRow padlock={padlock} letter={'D'} />
-              <PadlockRow padlock={padlock} letter={'E'} />
-              <PadlockRow padlock={padlock} letter={'F'} />
-              <PadlockRow padlock={padlock} letter={'G'} />
-              <PadlockRow padlock={padlock} letter={'H'} />
-              <View style={styles.padlockBottom} />
-            </View>
-
-            <View style={styles.slideButtonContainer}>
-              <TouchableOpacity
-                style={styles.buttonCreate}
-                onPress={() => navigation.navigate('Padlock Final Screen')}>
-                <View style={styles.buttonWrapper}>
-                  <Text style={styles.buttonCreateText}>Continue</Text>
-                  <AntDesign
-                    name={'arrowright'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.continueIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
           </View>
-        </ScrollView>
+
+          <View style={[styles.column, {gap: 10, alignItems: 'center'}]}>
+            <ScrollView
+              automaticallyAdjustKeyboardInsets={true}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}>
+              <View style={styles.padlock}>
+                <PadlockRow padlock={padlock} letter={'A'} />
+                <PadlockRow padlock={padlock} letter={'B'} />
+                <PadlockRow padlock={padlock} letter={'C'} />
+                <PadlockRow padlock={padlock} letter={'D'} />
+                <PadlockRow padlock={padlock} letter={'E'} />
+                <PadlockRow padlock={padlock} letter={'F'} />
+                <PadlockRow padlock={padlock} letter={'G'} />
+                <PadlockRow padlock={padlock} letter={'H'} />
+                <View style={styles.padlockBottom} />
+              </View>
+            </ScrollView>
+          </View>
+          <View style={styles.slideButtonContainer}>
+            <TouchableOpacity
+              style={styles.buttonCreate}
+              onPress={() => navigation.navigate('Padlock Final Screen')}>
+              <View style={styles.buttonWrapper}>
+                <Text style={styles.buttonCreateText}>Continue</Text>
+                <AntDesign
+                  name={'arrowright'}
+                  size={30}
+                  color={colors.text}
+                  style={styles.continueIcon}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -137,40 +135,42 @@ const styling = colors =>
   StyleSheet.create({
     bg: {
       backgroundColor: colors.bg,
-      alignItems: 'center',
       flexDirection: 'column',
       justifyContent: 'space-between',
+      gap: 10,
       height: '100%',
       paddingHorizontal: 10,
-      gap: 20,
+      paddingVertical: 10,
     },
-    settingsButtonContainer: {
-      position: 'absolute',
-      left: 0,
-      marginLeft: 5,
-      marginTop: 10,
-      backgroundColor: colors.bg,
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
     },
     headerImage: {
       width: 350,
       height: 65,
-      marginTop: 60,
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     directionsContainer: {
-      marginTop: -10,
       width: '100%',
       paddingHorizontal: 10,
     },
     welcomeText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
       marginBottom: -30,
     },
     directionText: {
       fontSize: 16,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
       marginTop: 10,
     },
     note: {
@@ -182,27 +182,17 @@ const styling = colors =>
     padlock: {
       backgroundColor: colors.text_light,
       borderRadius: 10,
-      width: '95%',
+      width: '97%',
       alignItems: 'center',
       justifyContent: 'space-evenly',
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     slideButtonContainer: {
       alignSelf: 'center',
       width: '100%',
-      paddingHorizontal: 10,
-      paddingBottom: 10,
+      paddingHorizontal: 13,
       flexDirection: 'row',
-    },
-    buttonConnect: {
-      width: '48%',
-      marginRight: '4%',
-      height: 80,
-      alignItems: 'center',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      backgroundColor: colors.text_light,
-      borderRadius: 20,
-      marginBottom: 10,
     },
     buttonCreate: {
       width: '100%',
@@ -213,13 +203,13 @@ const styling = colors =>
       borderRadius: 10,
       paddingVertical: 18,
       paddingHorizontal: 10,
-      marginBottom: 10,
     },
     buttonConnectText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     gradientContinue: {
       flexDirection: 'row',
@@ -232,8 +222,9 @@ const styling = colors =>
     buttonCreateText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonWrapper: {
       flexDirection: 'row',

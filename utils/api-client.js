@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {QueryCache} from '@tanstack/react-query';
 
-const apiURL = '';
+const apiURL = 'YOUR_API_URL';
 
 const queryCache = new QueryCache({
   onError: error => {
@@ -17,6 +17,7 @@ async function client(
   {data, headers: customHeaders, ...customConfig} = {},
 ) {
   const token = await AsyncStorage.getItem('token');
+  const workerKey = await AsyncStorage.getItem('worker_key');
   const config = {
     method: data ? 'POST' : 'GET',
     body: data instanceof FormData ? data : JSON.stringify(data),
@@ -25,6 +26,7 @@ async function client(
       ...(!data || data instanceof FormData
         ? {}
         : {'Content-Type': 'application/json'}),
+      apiKey: workerKey || '',
       ...customHeaders,
     },
     ...customConfig,

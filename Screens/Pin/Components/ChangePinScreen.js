@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Pressable,
 } from 'react-native';
 import {light, dark} from '../../../assets/colors/colors';
 import Pin from './Pin';
@@ -15,6 +16,10 @@ import useStore from '../../../data/store';
 import Feather from 'react-native-vector-icons/Feather';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 
 Feather.loadFont();
 
@@ -30,7 +35,7 @@ const ChangePinScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const onVerificationSuccess = () => {
     // go to set pin screen
@@ -63,163 +68,124 @@ const ChangePinScreen = ({navigation}) => {
     <GestureHandlerRootView>
       <SafeAreaView style={colors.bg}>
         <View style={styles.bg}>
-          <StatusBar />
           <View style={styles.header}>
-            <View>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
-          </View>
-          <View style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Privacy Settings Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={styles.actionButtonText}>Change Pin</Text>
-            </View>
-            <View style={styles.hl}></View>
-            <View></View>
-            <View style={styles.sendModalHeader}>
-              <Text style={styles.sendModalHeaderText}>
-                Enter Your Current Pin
-              </Text>
-            </View>
-            <Text style={styles.directionText}>
-              Please enter the 6-digit pin for your account.
-            </Text>
-          </View>
-          {isAuthenticated ? (
-            <View style={styles.loadingAnimationWrapper}>
-              <Pin
-                role={'verify'}
-                onSuccess={onVerificationSuccess}
-                onFailure={onFailure}
-                pin={newPin}
-                setPin={onChangePin}
-              />
-              {errorMessage?.length > 0 && (
-                <Text style={styles.errorMessage}>{errorMessage}</Text>
+            <Pressable
+              onPress={() => navigation.navigate('Privacy Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
               )}
-              <Text style={styles.attemptsRemainingText}>
-                {numAttempts} attempts remaining.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.loadingAnimationWrapper}>
-              <Text style={styles.directionText}>Max attempts reached.</Text>
-            </View>
-          )}
+            </Pressable>
+            <Text style={styles.headerHeading}>Change Pin</Text>
+            <Text style={{width: 20}}></Text>
+          </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
+          <Image
+            style={styles.headerImage}
+            source={
+              theme === 'light'
+                ? require('../../../assets/img/header_logo.png')
+                : require('../../../assets/img/header_logo_dark.png')
+            }
+          />
+          <View style={styles.wrapper}>
+            <Text style={styles.directionText}>
+              Please enter the current 6-digit pin of your account.
+            </Text>
+
+            {isAuthenticated ? (
+              <View style={styles.loadingAnimationWrapper}>
+                <Pin
+                  role={'verify'}
+                  onSuccess={onVerificationSuccess}
+                  onFailure={onFailure}
+                  pin={newPin}
+                  setPin={onChangePin}
+                />
+                {errorMessage?.length > 0 && (
+                  <Text style={styles.errorMessage}>{errorMessage}</Text>
+                )}
+                {numAttempts < 8 && (
+                  <Text style={styles.attemptsRemainingText}>
+                    {numAttempts} attempts remaining.
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.loadingAnimationWrapper}>
+                <Text style={styles.directionText}>Max attempts reached.</Text>
+              </View>
+            )}
+          </View>
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 20,
     },
-    hl: {
-      marginTop: 10,
+    wrapper: {
       width: '100%',
-      height: 3,
-      backgroundColor: colors.text_light,
+      // height: '100%',
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      borderRadius: 10,
     },
-    headerImage: {
-      width: 50,
-      height: 50,
-      marginLeft: 0,
-      marginTop: 0,
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
     },
     header: {
-      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      alignItems: 'center',
+      width: '100%',
     },
-    headerText: {
+    headerHeading: {
       fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      textAlign: 'right',
-      marginTop: 5,
     },
-    accountNameText: {
-      fontSize: 16,
-      color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      textAlign: 'right',
-      marginTop: 10,
-    },
-    settingsButtonContainer: {
-      backgroundColor: colors.bg,
-      flexDirection: 'row',
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      gap: 20,
-      marginTop: 10,
-    },
-    settingsWrapper: {
-      width: '100%',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      backgroundColor: colors.bg,
-      borderRadius: 10,
-    },
-
-    buttonWrapper: {
-      flexDirection: 'row',
-      width: '100%',
-      alignItems: 'center',
-    },
-    actionButtonText: {
-      color: colors.text,
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      textAlign: 'center',
+    headerImage: {
+      width: 279,
+      height: 53,
+      marginTop: 24,
+      marginLeft: 0,
     },
     loadingAnimationWrapper: {
-      backgroundColor: colors.bg,
       width: '100%',
-      height: 130,
-      // marginLeft: '5%',
-      marginBottom: 100,
-      marginTop: 30,
-      // elevation: 5,
-      borderRadius: 10,
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      marginBottom: 8,
+      marginTop: 16,
     },
     row: {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
       width: '80%',
-    },
-
-    addAccountAnimation: {
-      marginLeft: 0,
     },
     sendModalHeader: {
       width: '100%',
@@ -229,68 +195,35 @@ const styling = colors =>
       marginTop: 10,
     },
     sendModalHeaderText: {
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 18,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
-      marginTop: 50,
-    },
-    addAccountOkButton: {
-      width: 160,
-      height: 50,
-      alignItems: 'center',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      backgroundColor: colors.primary,
-      borderRadius: 20,
-    },
-    addAccountOkButtonText: {
-      textAlign: 'center',
-      fontSize: 20,
-      color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginRight: 20,
-      marginTop: Platform.OS === 'ios' ? 5 : 0,
-    },
-    buttontextDark: {
-      fontSize: 20,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 5,
-      marginTop: Platform.OS === 'ios' ? 5 : 0,
+      marginTop: 48,
     },
     directionText: {
-      fontSize: 18,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
-      marginTop: 30,
-      textAlign: 'center',
+      fontSize: 14,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
+      marginTop: 48,
+      textAlign: 'start',
     },
     attemptsRemainingText: {
-      fontSize: 18,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
-      marginTop: 20,
-      marginBottom: 30,
-      textAlign: 'center',
-    },
-    buttonWrapper: {
-      flexDirection: 'row',
-    },
-    bottomSpacer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      width: '80%',
-      // marginLeft: '10%'
+      fontSize: 12,
+      color: '#EF4444',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
+      textAlign: 'start',
     },
     errorMessage: {
       // backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       paddingTop: 10,
       paddingBottom: 10,

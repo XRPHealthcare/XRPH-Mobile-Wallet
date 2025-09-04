@@ -21,7 +21,25 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
+import {
+  CVSDarkIcon,
+  CVSLightIcon,
+  KrogerDarkIcon,
+  KrogerLightIcon,
+  LogoBgIcon,
+  PharmaDarkIcon,
+  PharmaLightIcon,
+  RiteAidDarkIcon,
+  RiteAidLightIcon,
+  SafewayDarkIcon,
+  SafewayLightIcon,
+  WalgererDarkIcon,
+  WalgererLightIcon,
+  WalmartDarkIcon,
+  WalmartLightIcon,
+  WeisDarkIcon,
+  WeisLightIcon,
+} from '../../../assets/img/new-design';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -38,44 +56,98 @@ const CouponScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
+  const COUPON_SUPPORTED_PHARMACIES = [
+    {
+      name: 'cvs',
+      light: <CVSLightIcon />,
+      dark: <CVSDarkIcon />,
+    },
+    {
+      name: 'walgreens',
+      light: <WalgererLightIcon />,
+      dark: <WalgererDarkIcon />,
+    },
+    {
+      name: 'walmart',
+      light: <WalmartLightIcon />,
+      dark: <WalmartDarkIcon />,
+    },
+    {
+      name: 'safeway',
+      light: <SafewayLightIcon />,
+      dark: <SafewayDarkIcon />,
+    },
+    {
+      name: 'pharma',
+      light: (
+        <Image
+          source={require('../../../assets/img/new-design/coupon/pharma-light.png')}
+          style={styles.pharmaIcon}
+        />
+      ),
+      dark: (
+        <Image
+          source={require('../../../assets/img/new-design/coupon/pharma-dark.png')}
+          style={styles.pharmaIcon}
+        />
+      ),
+    },
+    {
+      name: 'Kroger',
+      light: <KrogerLightIcon />,
+      dark: <KrogerDarkIcon />,
+    },
+    {
+      name: 'rite-aid',
+      light: <RiteAidLightIcon />,
+      dark: <RiteAidDarkIcon />,
+    },
+    {
+      name: 'weis',
+      light: <WeisLightIcon />,
+      dark: <WeisDarkIcon />,
+    },
+  ];
   return (
     <GestureHandlerRootView>
       <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
+            <View
+              style={[
+                styles.row,
+                {
+                  gap: 8,
+                },
+              ]}>
               <Image
                 style={styles.headerImage}
                 source={require('../../../assets/img/hero.png')}
               />
-            </View>
-            <View style={styles.headerRight}>
               <Text style={styles.headerText}>
                 XRPH Prescription Savings Card
               </Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
             </View>
+            <View style={[styles.prescription_card]}>
+              <Image
+                style={styles.prescription_card_img}
+                source={require('../../../assets/img/new-design/xrph-card.png')}
+              />
+              <Text style={styles.card_id}>
+                {activeAccount.prescription_card?.id}
+              </Text>
+              <Text style={styles.card_bin}>
+                {activeAccount.prescription_card?.bin}
+              </Text>
+              <Text style={styles.card_group}>
+                {activeAccount.prescription_card?.group}
+              </Text>
+            </View>
+            <LogoBgIcon style={styles.heroBgLogo} />
           </View>
-
-          <View style={styles.couponWrapper}>
-            <Image
-              style={styles.couponImage}
-              source={require('../../../assets/img/blank_coupon.png')}
-            />
-          </View>
-          <Text style={styles.card_id}>
-            {activeAccount.prescription_card.id}
-          </Text>
-          <Text style={styles.card_bin}>
-            {activeAccount.prescription_card.bin}
-          </Text>
-          <Text style={styles.card_group}>
-            {activeAccount.prescription_card.group}
-          </Text>
-
           <View style={styles.pharmaWrapper}>
             <View style={styles.buttonWrapper}>
               <Feather
@@ -103,70 +175,41 @@ const CouponScreen = ({navigation}) => {
               </Text>
             </View>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
 
           <ScrollView>
-            <View style={styles.imageRow}>
-              <Image
-                style={styles.cvsImage}
-                source={require('../../../assets/img/cvs_logo.png')}
-              />
-              <Image
-                style={styles.walgreensImage}
-                source={require('../../../assets/img/walgreens_logo.png')}
-              />
-              <Image
-                style={styles.walmartImage}
-                source={require('../../../assets/img/walmart_logo.png')}
-              />
-            </View>
-            <View style={styles.imageRow}>
-              {theme === 'light' ? (
-                <Image
-                  style={styles.safewayImage}
-                  source={require('../../../assets/img/safeway_logo_dark.png')}
-                />
-              ) : (
-                <Image
-                  style={styles.safewayImage}
-                  source={require('../../../assets/img/safeway_logo.png')}
-                />
-              )}
-              <Image
-                style={styles.snsImage}
-                source={require('../../../assets/img/stopandshop_logo.png')}
-              />
-            </View>
-            <View style={styles.imageRow}>
-              <Image
-                style={styles.krogerImage}
-                source={require('../../../assets/img/kroger_logo.png')}
-              />
-              <Image
-                style={styles.riteaidImage}
-                source={require('../../../assets/img/riteaid_logo.png')}
-              />
-              <Image
-                style={styles.weisImage}
-                source={require('../../../assets/img/weis_logo.png')}
-              />
+            <View style={styles.brandsWrapper}>
+              {COUPON_SUPPORTED_PHARMACIES.map((pharmacy, index) => (
+                <View key={index} style={styles.brandsImage}>
+                  {pharmacy[theme]}
+                </View>
+              ))}
             </View>
           </ScrollView>
           <Text style={styles.moretext}>And many more...</Text>
-          <Navbar activeIcon="coupon" navigation={navigation} />
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
     },
     headerImage: {
       width: 50,
@@ -176,43 +219,78 @@ const styling = colors =>
     },
     header: {
       width: '100%',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      paddingHorizontal: 20,
+      paddingTop: 29,
+      paddingBottom: 19,
+      flexDirection: 'column',
+      gap: 24,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 40,
+      borderBottomStartRadius: 40,
+    },
+    heroBgLogo: {
+      position: 'absolute',
+      right: 0,
+      marginRight: -10,
+      top: 60,
     },
     headerText: {
-      fontSize: 18,
+      fontSize: 14,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      textAlign: 'right',
-      marginTop: 5,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
+    },
+    prescription_card: {
+      position: 'relative',
+    },
+    prescription_card_img: {
+      width: '100%',
+      height: 250,
+      objectFit: 'contain',
     },
     accountNameText: {
       fontSize: 16,
       color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios'
+          ? 'LeagueSpartanMedium-Light'
+          : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginTop: 10,
       textAlign: 'right',
     },
+    pharmaIcon: {
+      height: 45,
+      width: 98.88,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -100,
+    },
     pharmatext: {
-      fontSize: 14,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 12,
+      color: theme === 'dark' ? '#f8f8f8' : '#636363',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginBottom: 10,
       textAlign: 'left',
       width: '90%',
     },
     moretext: {
-      fontSize: 16,
+      fontSize: 14,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       //   marginTop: 10,
-      marginBottom: -5,
+      marginBottom: 5,
       textAlign: 'center',
       width: '100%',
     },
@@ -229,12 +307,26 @@ const styling = colors =>
       justifyContent: 'center',
       elevation: 10,
     },
+    brandsWrapper: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 20,
+      marginTop: 24,
+    },
+    brandsImage: {
+      // width: '100%',
+      // aspectRatio: 2,
+    },
     pharmaWrapper: {
       width: '100%',
-      marginTop: 20,
-      marginBottom: 10,
-      backgroundColor: colors.bg,
+      marginTop: 24,
+      // backgroundColor: colors.bg_gray,
       borderRadius: 10,
+      paddingHorizontal: 20,
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
@@ -251,41 +343,41 @@ const styling = colors =>
     },
     card_id: {
       position: 'absolute',
-      top: 182,
+      top: 86,
       left: 80,
-      fontSize: 18,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 12,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: '#000000',
     },
     card_bin: {
       position: 'absolute',
-      top: 208,
+      top: 112,
       left: 80,
-      fontSize: 18,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 12,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: '#000000',
     },
     card_group: {
       position: 'absolute',
-      top: 235,
+      top: 138,
       left: 80,
-      fontSize: 18,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 12,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: '#000000',
     },
     buttonWrapper: {
       flexDirection: 'row',
-      width: '95%',
-    },
-    fingerIcon: {
-      marginRight: 10,
+      gap: 12,
+      width: '100%',
     },
     imageRow: {
-      width: '110%',
-      marginLeft: '-8%',
+      width: '100%',
       flexDirection: 'row',
       justifyContent: 'space-evenly',
       alignItems: 'center',

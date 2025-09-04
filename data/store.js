@@ -20,6 +20,24 @@ const useStore = create((set, get) => ({
       entropy: newEntropy,
     })),
 
+  txHistory: [],
+  setTxHistory: newHistory =>
+    set(() => ({
+      txHistory: newHistory,
+    })),
+
+  isAccountSwitchLoading: false,
+  setIsAccountSwitchLoading: isLoading =>
+    set(() => ({
+      isAccountSwitchLoading: isLoading,
+    })),
+
+  txHistoryLoading: false,
+  setTxHistoryLoading: isLoading =>
+    set(() => ({
+      txHistoryLoading: isLoading,
+    })),
+
   padlockErrorMessage: '',
   setPadlockErrorMessage: errorMessage =>
     set(() => ({
@@ -34,6 +52,12 @@ const useStore = create((set, get) => ({
       padlockErrorMessage: 'Error: Incorrect passcode combination.',
     })),
 
+  stakingBalances: [],
+  setStakingBalances: bnlcs => {
+    set(() => ({
+      stakingBalances: bnlcs,
+    }));
+  },
   accounts: [],
   setAccounts: updatedAccounts => {
     set(() => ({
@@ -152,12 +176,24 @@ const useStore = create((set, get) => ({
       accountBalances: newBalances,
     })),
 
-  node: 'wss://s2.ripple.com/',
-  // node: 'wss://testnet.xrpl-labs.com/',
+  activeConnections: [],
+  setActiveConnections: newConnections =>
+    set(() => ({
+      activeConnections: newConnections,
+    })),
+
+  node: 'wss://still-dark-gas.xrp-mainnet.quiknode.pro/f9dcecb9b67cabf67e067252b0eeb99947496f00/',
+   //node: 'wss://testnet.xrpl-labs.com/',
   setNode: newNode =>
     set(() => ({
       node: newNode,
     })),
+  rpcUrls: [],
+  setRpcUrls: urls => {
+    set(() => ({
+      rpcUrls: urls,
+    }));
+  },
   isBiometricEnabled: false,
   setIsBiometricEnabled: isEnabled =>
     set(() => ({

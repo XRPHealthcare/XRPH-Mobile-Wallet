@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  Pressable,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
@@ -24,12 +25,18 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
 import send_token from '../../HomeScreen/Handlers/send_token';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Lottie from 'lottie-react-native';
+import LottieView from 'lottie-react-native';
 import firestore from '@react-native-firebase/firestore';
 import {trigger} from 'react-native-haptic-feedback';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import PendingTouch from '../../../assets/img/pending-touch.svg';
 import {useVerifyPassword} from '../../../utils/auth.api';
+import {useGetPrices} from '../../../utils/wallet.api';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
+import {getTotalBalances} from '../../../utils/functions/balance';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -46,12 +53,12 @@ const SendingAnimation = () => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   return (
     <View style={styles.loadingAnimationWrapper}>
       <Text style={styles.loadingText}>Sending...</Text>
-      <Lottie
+      <LottieView
         style={styles.addAccountAnimation}
         source={require('../../../assets/animations/addAccountAnimation.json')}
         autoPlay
@@ -68,6 +75,7 @@ const SendingAnimation = () => {
 const ReviewPaymentScreen = ({navigation}) => {
   const rnBiometrics = new ReactNativeBiometrics();
   const verifyUserPassword = useVerifyPassword();
+  const getExchangePrices = useGetPrices();
   let {
     sendTransactionDetails,
     accounts,
@@ -75,6 +83,7 @@ const ReviewPaymentScreen = ({navigation}) => {
     theme,
     token,
     node,
+    rpcUrls,
     hepticOptions,
     isBiometricEnabled,
   } = useStore();
@@ -86,6 +95,7 @@ const ReviewPaymentScreen = ({navigation}) => {
   const setDestinationTag = useStore(state => state.setDestinationTag);
   const setAmount = useStore(state => state.setAmount);
   const setIsBiometricEnabled = useStore(state => state.setIsBiometricEnabled);
+  const setNode = useStore(state => state.setNode);
 
   const [loading, setLoading] = React.useState(false);
   const [loadingModalVisible, setLoadingModalVisible] = React.useState(false);
@@ -101,90 +111,10 @@ const ReviewPaymentScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
-
-  const getTotalBalances = async () => {
-    let updatedAccounts = [];
-
-    for (let accountIndex = 0; accountIndex < accounts.length; accountIndex++) {
-      let allRates = {
-        USD: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-        EUR: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-        GBP: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-      };
-
-      let allBalances = {
-        USD: '0',
-        EUR: '0',
-        GBP: '0',
-      };
-
-      const currencies = ['USD', 'EUR', 'GBP'];
-      const balances = accounts[accountIndex].balances;
-
-      if (balances.length == 0) {
-        updatedAccounts.push({
-          ...accounts[accountIndex],
-          totalBalances: allBalances,
-        });
-      } else {
-        for (let i = 0; i < currencies.length; i++) {
-          const res = await firestore()
-            .collection('exchange_rates')
-            .doc(currencies[i])
-            .get();
-          if (
-            res['_data'].XRPHrate === undefined ||
-            res['_data'].XRPrate === undefined
-          ) {
-            setError('Unfortunately we could not connect your account.');
-          } else {
-            const exchangeRates = res['_data'];
-            allRates[currencies[i]].XRPrate = exchangeRates.XRPrate;
-            allRates[currencies[i]].XRPHrate = exchangeRates.XRPHrate;
-            // XRPrate = exchangeRates.XRPrate;
-            // XRPHrate = exchangeRates.XRPHrate;
-          }
-          let sum = 0;
-
-          for (let j = 0; j < balances.length; j++) {
-            const {currency, value} = balances[j];
-
-            let amount = 0;
-            if (currency === 'XRP') {
-              amount = Number(value * allRates[currencies[i]].XRPrate);
-            } else if (currency === 'XRPH') {
-              amount = Number(value * allRates[currencies[i]].XRPHrate);
-            } else {
-              amount = 0;
-            }
-            sum += amount;
-          }
-
-          sum = sum.toFixed(2);
-          allBalances[currencies[i]] = String(sum.toLocaleString('en-US'));
-        }
-        // get data for XRP and XRPH
-
-        updatedAccounts.push({
-          ...accounts[accountIndex],
-          totalBalances: allBalances,
-        });
-      }
-    }
-    return updatedAccounts;
-  };
+  const styles = styling(colors, theme);
 
   const sendTransaction = async success => {
+    setLoading(true);
     console.log(password, activeAccount.password);
     let response = null;
     if (!success) {
@@ -203,10 +133,16 @@ const ReviewPaymentScreen = ({navigation}) => {
         destinationTag: sendTransactionDetails.destinationTag,
         balances: activeAccount.balances,
       };
-      const response = await send_token(preparedPayment, node);
+      const response = await send_token(
+        preparedPayment,
+        node,
+        rpcUrls,
+        setNode,
+      );
       console.log('----------response-------------------', response);
 
       if (response.error === undefined) {
+        setLoading(false);
         trigger('impactHeavy', hepticOptions);
         setLoadingModalVisible(false);
         navigation.push('Payment Success Screen');
@@ -224,31 +160,33 @@ const ReviewPaymentScreen = ({navigation}) => {
           }
         }
 
-        getTotalBalances(updatedAccounts).then(adjustedAccounts => {
-          setAccounts(adjustedAccounts);
-          AsyncStorage.setItem(
-            'accounts',
-            JSON.stringify(adjustedAccounts),
-          ).then(() => {
-            console.log('accounts set asynchronously');
-          });
+        const exchangeRates = await getExchangePrices.mutateAsync();
+        const adjustedAccounts = await getTotalBalances(
+          updatedAccounts,
+          exchangeRates,
+        );
 
-          for (let i = 0; i < adjustedAccounts.length; i++) {
-            if (
-              adjustedAccounts[i].classicAddress ===
-              activeAccount.classicAddress
-            ) {
-              setActiveAccount(adjustedAccounts[i]);
-              AsyncStorage.setItem(
-                'activeAccount',
-                JSON.stringify(adjustedAccounts[i]),
-              ).then(() => {
-                console.log('active account set asynchronously');
-              });
-            }
+        setAccounts(adjustedAccounts);
+        AsyncStorage.setItem('accounts', JSON.stringify(adjustedAccounts)).then(
+          () => {
+            console.log('accounts set asynchronously');
+          },
+        );
+
+        for (let i = 0; i < adjustedAccounts.length; i++) {
+          if (
+            adjustedAccounts[i].classicAddress === activeAccount.classicAddress
+          ) {
+            setActiveAccount(adjustedAccounts[i]);
+            AsyncStorage.setItem(
+              'activeAccount',
+              JSON.stringify(adjustedAccounts[i]),
+            ).then(() => {
+              console.log('active account set asynchronously');
+            });
           }
-          setLoading(false);
-        });
+        }
+        setLoading(false);
 
         setAccounts(updatedAccounts);
         AsyncStorage.setItem('accounts', JSON.stringify(updatedAccounts)).then(
@@ -266,9 +204,11 @@ const ReviewPaymentScreen = ({navigation}) => {
         const errMessage = response.error;
         setLoadingModalVisible(false);
         setErrorMessage(errMessage);
+        setLoading(false);
       }
       //const { from, fromBalances } = await send_token(preparedPayment);
     } else {
+      setLoading(false);
       setPwErrorMessage('Error: Incorrect password.');
     }
   };
@@ -337,86 +277,112 @@ const ReviewPaymentScreen = ({navigation}) => {
 
   return (
     <GestureHandlerRootView>
-      <SafeAreaView style={{backgroundColor: colors.bg}}>
+      <SafeAreaView style={{backgroundColor: colors.bg_gray}}>
         <StatusBar />
         {!loadingModalVisible && !pwModalOpen ? (
           <View style={styles.bg}>
             <View style={styles.header}>
-              <View style={styles.sendModalHeaderSpacer}>
-                <TouchableOpacity
-                  onPress={() =>
-                    navigation.navigate('Home Screen', {
-                      sendOpen: true,
-                      sendStep: 2,
-                      currToken: token,
-                      currAmount: sendTransactionDetails.amount,
-                    })
-                  }
-                  style={{
-                    marginLeft: -10,
-                    marginRight: 10,
-                  }}>
-                  <Feather
-                    name={'chevron-left'}
-                    size={35}
-                    color={colors.text}
-                    style={styles.backIcon}
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.headerText}>Review Payment</Text>
-              <Text style={styles.sendModalHeaderSpacer}></Text>
+              <Pressable
+                onPress={() =>
+                  navigation.navigate('Home Screen', {
+                    sendOpen: true,
+                    sendStep: 2,
+                    currToken: token,
+                    currAmount: sendTransactionDetails.amount,
+                  })
+                }>
+                {theme === 'dark' ? (
+                  <ArrowSqrLeftWhiteIcon />
+                ) : (
+                  <ArrowSqrLeftBlackIcon />
+                )}
+              </Pressable>
+              <Text style={styles.headerHeading}>Review Payment</Text>
+              <Text style={{width: 20}}></Text>
             </View>
-            <View style={styles.transactionCard}>
-              <Text style={styles.amount}>
-                {sendTransactionDetails.amount}{' '}
-                {sendTransactionDetails.currency}
-              </Text>
+            <Image
+              source={require('../../../assets/img/new-design/bg-gradient.png')}
+              style={styles.greenShadow}
+            />
+            <View
+              style={{
+                width: '100%',
+                paddingHorizontal: 20,
+                marginTop: 8,
+              }}>
+              <View style={styles.transactionCard}>
+                <View
+                  style={{
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  <Text style={styles.accountName}>{activeAccount?.name} </Text>
+                  <Text style={styles.accountAddress}>
+                    {activeAccount?.classicAddress}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginTop: 24,
+                  }}>
+                  <Text style={styles.amount}>
+                    {sendTransactionDetails.amount}{' '}
+                  </Text>
+                  <Text style={styles.amountCurrency}>
+                    {sendTransactionDetails.currency}
+                  </Text>
+                </View>
 
-              {sendTransactionDetails.exchangeIn === 'USD' && (
-                <Text style={styles.conversion}>
-                  <Text style={styles.inputLabelCharacter}>~</Text> ${' '}
-                  {sendTransactionDetails.amountConversion}{' '}
-                  {sendTransactionDetails.exchangeIn}
+                {sendTransactionDetails.exchangeIn === 'USD' && (
+                  <Text style={styles.conversion}>
+                    <Text style={styles.inputLabelCharacter}>~</Text> ${' '}
+                    {sendTransactionDetails.amountConversion}{' '}
+                    {sendTransactionDetails.exchangeIn}
+                  </Text>
+                )}
+
+                {sendTransactionDetails.exchangeIn === 'EUR' && (
+                  <Text style={styles.conversion}>
+                    <Text style={styles.inputLabelCharacter}>~</Text> €{' '}
+                    {sendTransactionDetails.amountConversion}{' '}
+                    {sendTransactionDetails.exchangeIn}
+                  </Text>
+                )}
+
+                {sendTransactionDetails.exchangeIn === 'GBP' && (
+                  <Text style={styles.conversion}>
+                    <Text style={styles.inputLabelCharacter}>~</Text> £{' '}
+                    {sendTransactionDetails.amountConversion}{' '}
+                    {sendTransactionDetails.exchangeIn}
+                  </Text>
+                )}
+
+                <View style={[styles.horizontalLine, {marginTop: 32}]}></View>
+                <Text style={[styles.label, {marginTop: 16}]}>From</Text>
+                <Text style={styles.text}>{sendTransactionDetails.from}</Text>
+                <Text style={[styles.label, {marginTop: 12}]}>To</Text>
+                <Text style={styles.text}>{sendTransactionDetails.to}</Text>
+                <Text style={[styles.label, {marginTop: 12}]}>
+                  Transaction Fee
                 </Text>
-              )}
-
-              {sendTransactionDetails.exchangeIn === 'EUR' && (
-                <Text style={styles.conversion}>
-                  <Text style={styles.inputLabelCharacter}>~</Text> €{' '}
-                  {sendTransactionDetails.amountConversion}{' '}
-                  {sendTransactionDetails.exchangeIn}
+                <Text style={styles.text}>
+                  {sendTransactionDetails.transactionFee}
                 </Text>
-              )}
-
-              {sendTransactionDetails.exchangeIn === 'GBP' && (
-                <Text style={styles.conversion}>
-                  <Text style={styles.inputLabelCharacter}>~</Text> £{' '}
-                  {sendTransactionDetails.amountConversion}{' '}
-                  {sendTransactionDetails.exchangeIn}
+                <View
+                  style={[styles.horizontalLine, {marginVertical: 16}]}></View>
+                <Text style={[styles.label]}>Memo</Text>
+                <Text style={styles.text}>{sendTransactionDetails.memo}</Text>
+                <Text style={[styles.label, {marginTop: 12}]}>
+                  Destination Tag
                 </Text>
-              )}
-
-              <View style={styles.horizontalLine}></View>
-              <Text style={styles.label}>From</Text>
-              <Text style={styles.text}>{sendTransactionDetails.from}</Text>
-              <View style={styles.horizontalLine}></View>
-              <Text style={styles.label}>To</Text>
-              <Text style={styles.text}>{sendTransactionDetails.to}</Text>
-              <View style={styles.horizontalLine}></View>
-              <Text style={styles.label}>Transaction Fee</Text>
-              <Text style={styles.text}>
-                {sendTransactionDetails.transactionFee}
-              </Text>
-              <View style={styles.horizontalLine}></View>
-              <Text style={styles.label}>Memo</Text>
-              <Text style={styles.text}>{sendTransactionDetails.memo}</Text>
-              <View style={styles.horizontalLine}></View>
-              <Text style={styles.label}>Destination Tag</Text>
-              <Text style={styles.text}>
-                {sendTransactionDetails.destinationTag}
-              </Text>
-              <View style={styles.horizontalLine}></View>
+                <Text style={styles.text}>
+                  {sendTransactionDetails.destinationTag}
+                </Text>
+              </View>
             </View>
             {errorMessage.length > 0 && (
               <Text style={styles.errorMessageText}>{errorMessage}</Text>
@@ -429,13 +395,7 @@ const ReviewPaymentScreen = ({navigation}) => {
                   checkIsBiometricEnabled();
                 }}>
                 <View style={styles.buttonWrapper}>
-                  <Text style={styles.buttonCreateText}>Send</Text>
-                  <AntDesign
-                    name={'arrowright'}
-                    size={30}
-                    color={colors.text}
-                    style={styles.continueIcon}
-                  />
+                  <Text style={styles.buttonCreateText}>Confirm Transfer</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -450,81 +410,129 @@ const ReviewPaymentScreen = ({navigation}) => {
 
             {pwModalOpen && (
               <Modal visible={pwModalOpen} transparent={true}>
-                <View style={styles.addAccountModalWrapper}>
-                  <View style={styles.sendModalHeader}>
-                    <View style={styles.sendModalHeaderSpacer}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setPwModalOpen(false);
-                        }}
-                        style={{
-                          marginTop: 7,
-                          marginLeft: -10,
-                        }}>
-                        <Feather
-                          name={'chevron-left'}
-                          size={35}
-                          color={colors.text}
-                          style={styles.backIcon}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.sendModalHeaderText}>
-                      Sign Transaction
-                    </Text>
-                    <View style={styles.sendModalHeaderSpacer}></View>
+                <View
+                  style={[
+                    styles.addAccountModalWrapper,
+                    {
+                      paddingTop: Platform.OS === 'ios' ? 25 : 0,
+                    },
+                  ]}>
+                  <View style={styles.header}>
+                    <Pressable onPress={() => setPwModalOpen(false)}>
+                      {theme === 'dark' ? (
+                        <ArrowSqrLeftWhiteIcon />
+                      ) : (
+                        <ArrowSqrLeftBlackIcon />
+                      )}
+                    </Pressable>
+                    <Text style={styles.headerHeading}>Sign Transaction</Text>
+                    <Text style={{width: 20}}></Text>
                   </View>
+                  <Image
+                    source={require('../../../assets/img/new-design/bg-gradient.png')}
+                    style={styles.greenShadow}
+                  />
                   <View style={styles.addAccountModalActionsWrapper}>
-                    <Text style={styles.pwDirections}>
-                      Enter your password to sign your transaction.
-                    </Text>
-                    <View style={styles.pw}>
-                      <TextInput
-                        style={styles.accountNameInputPw}
-                        onChangeText={setPassword}
-                        value={password}
-                        placeholder="Password"
-                        placeholderTextColor={colors.text_dark}
-                        secureTextEntry={!enterPwVisibility}
-                      />
-                      <TouchableOpacity
-                        style={styles.eyeButton}
-                        onPress={() =>
-                          setEnterPwVisibility(!enterPwVisibility)
-                        }>
-                        <View style={styles.buttonWrapper}>
-                          <Feather
-                            name={enterPwVisibility ? 'eye' : 'eye-off'}
-                            size={25}
-                            color={colors.text}
-                            style={styles.eyeIcon}
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                    {pwErrorMessage.length > 0 && (
-                      <Text style={styles.errorMessageText}>
-                        {pwErrorMessage}
+                    <View
+                      style={{
+                        width: '100%',
+                      }}>
+                      <Text style={styles.pwDirections}>
+                        Enter your password to sign your transaction.
                       </Text>
-                    )}
-                    {isBiometricEnabled && (
-                      <TouchableOpacity
-                        style={{marginVertical: 30}}
-                        onPress={checkIsBiometricEnabled}>
-                        <PendingTouch height={75} width={75} />
-                      </TouchableOpacity>
-                    )}
+                      <View style={styles.pw}>
+                        <TextInput
+                          style={styles.accountNameInputPw}
+                          onChangeText={setPassword}
+                          value={password}
+                          placeholder="Password"
+                          placeholderTextColor={colors.text_dark}
+                          secureTextEntry={!enterPwVisibility}
+                        />
+                        <TouchableOpacity
+                          style={styles.eyeButton}
+                          onPress={() =>
+                            setEnterPwVisibility(!enterPwVisibility)
+                          }>
+                          <View style={styles.buttonWrapper}>
+                            <Feather
+                              name={enterPwVisibility ? 'eye' : 'eye-off'}
+                              size={24}
+                              color={colors.text}
+                              style={styles.eyeIcon}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                      {pwErrorMessage.length > 0 && (
+                        <Text style={styles.errorMessageText}>
+                          {pwErrorMessage}
+                        </Text>
+                      )}
+                      {isBiometricEnabled && (
+                        <View
+                          style={{
+                            marginTop: 48,
+                            marginLeft: 'auto',
+                            marginRight: 'auto',
+                          }}>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 10,
+                            }}>
+                            <View
+                              style={{
+                                height: 1,
+                                width: '45%',
+                                backgroundColor: colors.text_gray,
+                              }}
+                            />
+                            <Text
+                              style={[
+                                styles.attemptsLeft,
+                                {fontSize: 14, textAlign: 'center'},
+                              ]}>
+                              OR
+                            </Text>
+                            <View
+                              style={{
+                                height: 1,
+                                width: '45%',
+                                backgroundColor: colors.text_gray,
+                              }}
+                            />
+                          </View>
+                          <TouchableOpacity
+                            style={{
+                              marginTop: 48,
+                              marginLeft: 'auto',
+                              marginRight: 'auto',
+                            }}
+                            onPress={checkIsBiometricEnabled}>
+                            <PendingTouch height={75} width={75} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.addAccountActionButtons}>
                       <TouchableOpacity
                         style={styles.addAccountOkButton}
-                        onPress={() => sendTransaction()}>
+                        onPress={() => {
+                          if (!loading) {
+                            sendTransaction();
+                          }
+                        }}
+                        disabled={loading}>
                         <View style={styles.buttonWrapper}>
                           <Text style={styles.addAccountOkButtonText}>
                             Continue
                           </Text>
                           <Feather
                             name={'arrow-right'}
-                            size={25}
+                            size={24}
                             color={colors.bg}
                             style={styles.continueIcon}
                           />
@@ -542,24 +550,49 @@ const ReviewPaymentScreen = ({navigation}) => {
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
     },
     header: {
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
       flexDirection: 'row',
-      justifyConten: 'space-between',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      width: '90%',
-      marginTop: 50,
-      marginBottom: 50,
+      width: '100%',
     },
-    backIcon: {},
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
+    },
+    attemptsLeft: {
+      fontSize: 12,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
+      textAlign: 'start',
+    },
     inputLabelCharacter: {
       fontFamily: 'Helvetica',
     },
@@ -568,8 +601,9 @@ const styling = colors =>
     },
     headerText: {
       fontSize: 22,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
       paddingRight: 10,
@@ -586,61 +620,83 @@ const styling = colors =>
     buttontextDark: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginLeft: 5,
       marginTop: 5,
     },
     transactionCard: {
-      backgroundColor: colors.bg,
-      width: '95%',
+      backgroundColor: colors.bg_otp_input,
+      borderWidth: 1,
+      borderColor: colors.border_gray,
+      width: '100%',
       // elevation: 5,
-      borderRadius: 10,
+      borderRadius: 20,
       justifyContent: 'space-between',
       flexDirection: 'column',
+      paddingVertical: 24,
+      paddingHorizontal: 14,
+    },
+    accountName: {
+      fontSize: 22,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
+    },
+    accountAddress: {
+      fontSize: 12,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
     },
     amount: {
-      fontSize: 30,
-      color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 10,
-      marginTop: 10,
+      fontSize: 36,
+      color: '#03F982',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
     },
-    conversion: {
+    amountCurrency: {
       fontSize: 20,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 10,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
+    },
+    conversion: {
+      marginTop: 4,
+      fontSize: 14,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginBottom: 2,
     },
     horizontalLine: {
-      width: '95%',
-      marginLeft: '2.5%',
-      marginBottom: 5,
+      width: '100%',
       height: 2,
-      backgroundColor: colors.text_dark,
+      backgroundColor: theme === 'dark' ? '#414141' : '#f8f8f8',
     },
     label: {
       fontSize: 12,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 10,
-      marginTop: 5,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     text: {
-      fontSize: 14,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 10,
-      marginTop: 5,
-      marginBottom: 5,
+      fontSize: 12,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      marginTop: 4,
     },
     loadingAnimationWrapper: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       width: '90%',
       height: '80%',
       marginTop: '20%',
@@ -666,8 +722,9 @@ const styling = colors =>
     },
     sendModalHeaderText: {
       fontSize: 22,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'right',
       paddingRight: 10,
@@ -675,16 +732,18 @@ const styling = colors =>
     },
     loadingText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
-      marginBottom: 40,
+      marginBottom: 30,
     },
     loadingTextSmall: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'left',
       position: 'absolute',
@@ -693,68 +752,65 @@ const styling = colors =>
     },
     loadingTextSmallTop: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
-      textAlign: 'left',
+      textAlign: 'center',
       position: 'absolute',
       bottom: 60,
-      marginTop: 50,
-      marginBottom: 30,
+      marginTop: 60,
+      marginBottom: 20,
     },
     addAccountModalWrapper: {
-      backgroundColor: colors.bg,
-      width: '90%',
-      height: 350,
-      marginLeft: '5%',
-      marginBottom: 100,
-      marginTop: 20,
+      backgroundColor: colors.bg_gray,
+      width: '100%',
+      height: '100%',
       // elevation: 5,
       borderRadius: 10,
-      justifyContent: 'space-between',
       alignItems: 'center',
     },
     addAccountModalActionsWrapper: {
-      paddingHorizontal: 10,
+      paddingHorizontal: 20,
       width: '100%',
-      // justifyContent: 'space-evenly',
+      justifyContent: 'space-between',
       flexDirection: 'column',
       alignItems: 'center',
+      flex: 1,
     },
     addAccountModalDirections: {
       textAlign: 'right',
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       // marginBottom: 20
     },
     addAccountActionButtons: {
       flexDirection: 'row',
       justifyContent: 'center',
       width: '100%',
-      paddingHorizontal: 10,
       marginBottom: 10,
       marginTop: 10,
     },
     addAccountOkButton: {
-      width: '55%',
-      height: 50,
+      width: '100%',
+      height: 44,
       alignItems: 'center',
       flexDirection: 'column',
       justifyContent: 'center',
       backgroundColor: colors.primary,
-      borderRadius: 25,
+      borderRadius: 8,
       marginBottom: 10,
     },
     addAccountOkButtonText: {
       textAlign: 'center',
-      fontSize: 20,
+      fontSize: 16,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginRight: 20,
-      marginTop: 4,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     accountNameInput: {
       height: 40,
@@ -764,8 +820,9 @@ const styling = colors =>
       backgroundColor: colors.text_light,
       borderColor: colors.primary,
       padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       borderRadius: 10,
       paddingTop: 14,
@@ -775,21 +832,21 @@ const styling = colors =>
       textAlign: 'left',
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginBottom: 5,
       marginTop: 20,
     },
     pwDirections: {
       width: '100%',
       textAlign: 'left',
-      fontSize: 16,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginBottom: 5,
-      marginTop: 20,
-      marginLeft: 20,
+      fontSize: 14,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      marginTop: 24,
     },
     buttonWrapper: {
       flexDirection: 'row',
@@ -819,23 +876,24 @@ const styling = colors =>
       alignItems: 'center',
       flexDirection: 'column',
       justifyContent: 'center',
-      backgroundColor: colors.secondary,
-      borderRadius: 10,
-      paddingVertical: 18,
-      paddingHorizontal: 10,
+      backgroundColor: colors.primary,
+      borderRadius: 8,
       marginBottom: 10,
+      height: 44,
     },
     buttonConnectText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonCreateText: {
-      fontSize: 20,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 16,
+      color: colors.bg,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonWrapper: {
       flexDirection: 'row',
@@ -843,11 +901,12 @@ const styling = colors =>
     },
     continueIcon: {
       marginLeft: 10,
+      marginTop: 4,
     },
     errorMessageText: {
       backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: 'NexaBold',
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
       borderRadius: 20,
       padding: 10,
@@ -856,33 +915,38 @@ const styling = colors =>
       width: '95%',
     },
     accountNameInputPw: {
-      height: 40,
-      width: '80%',
-      paddingHorizontal: 10,
-      margin: 10,
-      backgroundColor: colors.text_light,
-      borderColor: colors.primary,
-      padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      height: 54,
+      width: '100%',
+      paddingLeft: 14,
+      paddingRight: 34,
+      paddingVertical: 15,
+      backgroundColor: colors.bg_otp_input,
+      borderColor: colors.border_gray,
+      borderWidth: 1,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       borderRadius: 10,
-      paddingTop: 14,
     },
     eyeButton: {
-      backgroundColor: colors.text_light,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderRadius: 10,
+      position: 'absolute',
+      right: 0,
+      marginRight: 14,
     },
     pw: {
       width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
+      position: 'relative',
+      marginTop: 16,
     },
     eyeIcon: {
       paddingHorizontal: 5,
+    },
+    addAccountAnimation: {
+      height: '100%',
+      width: '100%',
     },
   });
 

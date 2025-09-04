@@ -7,7 +7,6 @@ import {
   Text,
   Image,
   Modal,
-  ScrollView,
   Linking,
   Platform,
 } from 'react-native';
@@ -18,6 +17,7 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import TokenRow from './TokenRow';
+import {ScrollView} from 'react-native-gesture-handler';
 
 AntDesign.loadFont();
 FontAwesome.loadFont();
@@ -33,6 +33,8 @@ const TokenContainer = props => {
     colors = dark;
   }
 
+  //console.log('accountBalances',accountBalances);
+  
   const styles = styling(colors);
 
   return (
@@ -59,37 +61,20 @@ const TokenContainer = props => {
             <Text style={styles.noTokensText}>
               {props.loading
                 ? 'Loading..'
-                : 'Send 12 XRP to this account to activate it.'}
+                : 'Send 1.7 XRP to this account to activate it.'}
             </Text>
           </View>
         ) : (
-          [
-            <ScrollView
-              key={'token-scroll'}
-              contentContainerStyle={styles.tokenWrapper}>
-              {accountBalances?.map(token => (
-                <TokenRow
-                  currency={token.currency}
-                  balance={token.value}
-                  key={token.currency}
-                />
-              ))}
-            </ScrollView>,
-            <View key={'token-bottom'} style={styles.tokenBottomWrapper}>
-              <Text style={styles.reserveText}>
-                Reserved: 12 XRP / 200 XRPH
-              </Text>
-              {/* <TouchableOpacity style={styles.buyXRPHButtonTokens} onPress={() => setBuyXRPHModalOpen(true)}>
-                            <View style={styles.buttonWrapper}>
-                                <Image
-                                source={require('../../../assets/img/hero.png')}
-                                style={styles.xrphLogo}
-                                />
-                                <Text style={styles.buyXRPHButtonText}>Buy XRPH</Text>
-                            </View>
-                        </TouchableOpacity> */}
-            </View>,
-          ]
+          <View style={styles.tokenWrapper}>
+            {accountBalances?.map(token => (
+              <TokenRow
+                currency={token.currency}
+                balance={token.value}
+                key={token.currency}
+              />
+            ))}
+            <Text style={styles.reserveText}>Reserved: {accountBalances[3].value>0?'1.6':accountBalances[3].TotalValue} XRP</Text>
+          </View>
         )}
 
         <Modal visible={buyXRPHModalOpen} transparent={true}>
@@ -157,7 +142,7 @@ const styling = colors =>
   StyleSheet.create({
     tokenView: {
       width: '100%',
-      marginTop: 20,
+      marginTop: 24,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -175,25 +160,29 @@ const styling = colors =>
       fontSize: 16,
       color: colors.text,
       marginTop: 5,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: '700',
     },
     tokenSearch: {
       width: '100%',
-      padding: 16,
-      marginTop: 10,
+      marginTop: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 14,
       marginBottom: 10,
       borderRadius: 10,
-      backgroundColor: colors.token_bg,
-      height: 136,
+      backgroundColor: colors.bg,
       flexDirection: 'row',
+      borderWidth: 1,
+      borderColor: '#ededed',
     },
     tokenSearchText: {
       color: colors.text_dark,
       marginLeft: 0,
       marginTop: 9,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     noTokensWrapper: {
       width: '100%',
@@ -206,13 +195,15 @@ const styling = colors =>
       textAlign: 'center',
       fontSize: 14,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     refreshText: {
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       fontSize: 14,
       marginRight: 8,
       marginTop: 0,
@@ -242,17 +233,9 @@ const styling = colors =>
       color: colors.text,
       textAlign: 'center',
       marginTop: 8,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      fontSize: 16,
-      marginLeft: 15,
-    },
-    buyXRPButtonText: {
-      color: colors.text,
-      textAlign: 'center',
-      marginTop: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       fontSize: 16,
       marginLeft: 15,
     },
@@ -271,19 +254,17 @@ const styling = colors =>
     tokenWrapper: {
       flexDirection: 'column',
       width: '100%',
+      gap: 10,
     },
     reserveText: {
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       // alignSelf: 'flex-end',
       marginLeft: 10,
     },
     tokenBottomWrapper: {
-      position: 'absolute',
-      bottom: 0,
-      marginBottom: 5,
-      zIndex: -1,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -344,20 +325,22 @@ const styling = colors =>
     },
     sendModalHeaderText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'right',
       paddingRight: 10,
     },
     sendModalHeaderTextBuy: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
       marginTop: 2,
     },
   });
 
-export default TokenContainer;
+export default React.memo(TokenContainer);

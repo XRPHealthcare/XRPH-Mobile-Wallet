@@ -85,7 +85,8 @@ const styling = colors =>
       textAlign: 'left',
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaLight',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanLight',
       marginBottom: 20,
     },
     addAccountActionButtons: {
@@ -108,8 +109,9 @@ const styling = colors =>
       textAlign: 'center',
       fontSize: 16,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     sendModalHeader: {
       width: '100%',
@@ -123,8 +125,9 @@ const styling = colors =>
     },
     sendModalHeaderText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
     },

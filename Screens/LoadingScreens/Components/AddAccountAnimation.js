@@ -1,23 +1,19 @@
 import React from 'react';
 
-import {
-  StyleSheet,
-  View,
-  Text,
-  Platform} from 'react-native';
-import _ from'lodash';
-import { light, dark } from '../../../assets/colors/padlockColors';
-import Lottie from 'lottie-react-native';
+import {StyleSheet, View, Text, Platform} from 'react-native';
+import _ from 'lodash';
+import {light, dark} from '../../../assets/colors/padlockColors';
+import LottieView from 'lottie-react-native';
 import useStore from '../../../data/store';
 
 const AddAccountAnimation = () => {
   // const [count, setCount] = React.useState(0);
   // const [message, setMessage] = React.useState("Creating Account...");
-  const { theme } = useStore();
+  const {theme} = useStore();
 
   let colors = light;
   if (theme === 'dark') {
-    colors = dark
+    colors = dark;
   }
 
   const styles = styling(colors);
@@ -51,44 +47,53 @@ const AddAccountAnimation = () => {
 
   return (
     <View style={styles.loadingAnimationWrapper}>
-        {/* <View style={styles.sendModalHeader}>
+      {/* <View style={styles.sendModalHeader}>
               <Text style={styles.sendModalHeaderText}>{message}</Text>
         </View> */}
-        <Lottie style={styles.addAccountAnimation} source={require('../../../assets/animations/addAccountAnimation.json')} autoPlay loop />
+      <LottieView
+        style={styles.addAccountAnimation}
+        source={require('../../../assets/animations/addAccountAnimation.json')}
+        autoPlay
+        loop
+      />
     </View>
   );
-}
+};
 
-const styling = colors => StyleSheet.create({
+const styling = colors =>
+  StyleSheet.create({
     loadingAnimationWrapper: {
-        backgroundColor: colors.bg,
-        width: '90%',
-        height: 350,
-        marginLeft: '5%',
-        marginBottom: 100,
-        marginTop: 100,
-        // elevation: 5,
-        borderRadius: 10,
-        justifyContent: 'space-between',
-        alignItems: 'center'
+      backgroundColor: colors.bg,
+      width: '90%',
+      height: 350,
+      marginLeft: '5%',
+      marginBottom: 100,
+      marginTop: 100,
+      // elevation: 5,
+      borderRadius: 10,
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
     addAccountAnimation: {
-        marginLeft: 0
+      width: '100%',
+      height: '100%',
     },
     sendModalHeader: {
-        width: '100%',
-        paddingHorizontal: 10,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 10,
-        marginBottom: 20
+      width: '100%',
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 10,
+      marginBottom: 20,
     },
     sendModalHeaderText: {
-        fontSize: 20,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        color: colors.text,
-        textAlign: 'center'
-      },
-})
+      fontSize: 20,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      color: colors.text,
+      textAlign: 'center',
+    },
+  });
 
 export default AddAccountAnimation;

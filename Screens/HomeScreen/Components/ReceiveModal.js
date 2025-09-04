@@ -2,18 +2,14 @@ import React, {useCallback, useMemo, useRef} from 'react';
 
 import {
   Text,
-  Image,
   StyleSheet,
   View,
   TouchableOpacity,
-  Modal,
   Share,
   Platform,
-  ImageBackground,
 } from 'react-native';
 import useStore from '../../../data/store';
 import {light, dark} from '../../../assets/colors/colors';
-import SelectDropdown from 'react-native-select-dropdown';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
@@ -22,13 +18,14 @@ import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Clipboard from '@react-native-clipboard/clipboard';
 import RNQRGenerator from 'rn-qr-generator';
-import BottomSheet, {BottomSheetBackdrop} from '@gorhom/bottom-sheet';
+import RBSheet from 'react-native-raw-bottom-sheet';
 import getXAddress from '../Handlers/get_x_address';
 import QRCode from 'react-native-qrcode-svg';
 import {trigger} from 'react-native-haptic-feedback';
 import CustomBackground from './CustomBackground';
 import {ScrollView} from 'react-native-gesture-handler';
 import LinearGradient from 'react-native-linear-gradient';
+import Success from '../../../components/Success';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -47,7 +44,7 @@ const ReceiveModal = props => {
   const [toggleAddress, setToggleAddress] = React.useState(false);
 
   // variables
-  const snapPoints = useMemo(() => [400, 550], []);
+  const snapPoints = useMemo(() => [440, 590], []);
 
   let colors = light;
   if (theme === 'dark') {
@@ -63,14 +60,14 @@ const ReceiveModal = props => {
 
   React.useEffect(() => {
     if (props.receiveModalOpen) {
-      bottomSheetRef?.current?.expand();
+      bottomSheetRef?.current?.open();
     } else {
       bottomSheetRef?.current?.close();
     }
   }, [props.receiveModalOpen]);
   React.useEffect(() => {
     RNQRGenerator.generate({
-      value: activeAccount.classicAddress,
+      value: activeAccount?.classicAddress,
       height: 200,
       width: 200,
     })
@@ -81,7 +78,7 @@ const ReceiveModal = props => {
       .catch(error => console.log('Cannot create QR code', error));
 
     RNQRGenerator.generate({
-      value: getXAddress(activeAccount.classicAddress),
+      value: getXAddress(activeAccount?.classicAddress),
       height: 200,
       width: 200,
     })
@@ -107,6 +104,8 @@ const ReceiveModal = props => {
   };
 
   const shareAddress = async () => {
+    console.log('i am called', activeAccount.classicAddress);
+
     await Share.share({
       message: toggleAddress
         ? getXAddress(activeAccount.classicAddress)
@@ -124,18 +123,25 @@ const ReceiveModal = props => {
     props.navigation.navigate('Payment Request');
   };
 
+  const rbSheetStyles = {
+    container: {
+      backgroundColor: theme === 'dark' ? '#1A1A1A' : '#fff',
+      paddingTop: 20,
+      borderTopRightRadius: 15,
+      borderTopLeftRadius: 15,
+      // borderColor: '#36394A',
+      // borderWidth: 1,
+    },
+  };
+
   return (
     <React.Fragment>
-      <BottomSheet
-        style={{
-          borderRadius: 15,
-          overflow: 'hidden',
-        }}
+      <RBSheet
         ref={bottomSheetRef}
-        index={-1}
-        snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundComponent={CustomBackground}>
+        height={580}
+        customStyles={rbSheetStyles}
+        closeOnPressBack={false}
+        closeOnPressMask={false}>
         <View style={styles.bottomWrapper}>
           <ScrollView
             automaticallyAdjustKeyboardInsets={true}
@@ -145,7 +151,7 @@ const ReceiveModal = props => {
               <Text
                 style={{
                   fontSize: 24,
-                  fontWeight: 700,
+                  fontWeight: '700',
                   color: colors.text,
                 }}>
                 Receive
@@ -175,6 +181,18 @@ const ReceiveModal = props => {
                 </Text>
               </View>
             </View>
+            <Text
+              style={[
+                styles.destinationTag,
+                {
+                  color:
+                    theme === 'light'
+                      ? 'rgba(26, 26, 26, 0.60)'
+                      : 'rgba(255, 255, 255, 0.60)',
+                },
+              ]}>
+              No destination tag required
+            </Text>
             <View style={styles.actionBtnWrapper}>
               <TouchableOpacity
                 style={styles.actionButton}
@@ -221,26 +239,14 @@ const ReceiveModal = props => {
             </View>
           </ScrollView>
         </View>
-      </BottomSheet>
+      </RBSheet>
       {copiedModalOpen && (
-        <View style={styles.addAccountModalWrapper}>
-          <View style={styles.copyModalHeader}>
-            <View style={styles.copyModalHeaderSpacer}>
-              <Text style={styles.sendModalHeaderTextName}>
-                Copied to Clipboard
-              </Text>
-              <AntDesign
-                name={'check'}
-                size={20}
-                color={colors.text}
-                style={styles.checkIcon}
-              />
-            </View>
-            <TouchableOpacity onPress={() => setCopiedModalOpen(false)}>
-              <Text style={styles.sendModalHeaderText}>X</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <Success
+          isOpen={copiedModalOpen}
+          setIsOpen={setCopiedModalOpen}
+          message={'Copied to Clipboard'}
+          type={'success'}
+        />
       )}
     </React.Fragment>
   );
@@ -307,8 +313,9 @@ const styling = colors =>
     actionButtonText: {
       color: colors.text,
       fontSize: 18,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     // receiveIcon: {
     //   marginRight: 16,
@@ -341,15 +348,17 @@ const styling = colors =>
 
     sendModalHeaderText: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'left',
     },
     sendModalHeaderTextName: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'left',
       marginTop: 4,
@@ -377,6 +386,12 @@ const styling = colors =>
 
     checkIcon: {
       marginLeft: 10,
+    },
+    destinationTag: {
+      fontSize: 14,
+      fontWeight: '400',
+      textAlign: 'center',
+      marginTop: 10,
     },
   });
 

@@ -25,6 +25,7 @@ import useStore from '../../../data/store';
 import UpdateIco from '../../../assets/img/update-ico.svg';
 import UpdateIcoD from '../../../assets/img/update-ico-d.svg';
 import LinearGradient from 'react-native-linear-gradient';
+import RNExitApp from 'react-native-exit-app';
 
 const xrpl = require('xrpl');
 
@@ -44,6 +45,23 @@ const ForceUpdateScreen = ({route, navigation}) => {
   }
 
   const styles = styling(colors);
+
+  const gestureEndListener = e => {
+    if (
+      e?.data?.action?.type === 'GO_BACK' ||
+      e?.data?.action?.type === 'POP'
+    ) {
+      RNExitApp.exitApp();
+    }
+  };
+
+  React.useEffect(() => {
+    const gestureHandler = navigation.addListener(
+      'beforeRemove',
+      gestureEndListener,
+    );
+    return gestureHandler;
+  }, []);
 
   return (
     <GestureHandlerRootView>
@@ -71,7 +89,7 @@ const ForceUpdateScreen = ({route, navigation}) => {
                 style={{
                   color: theme === 'dark' ? '#fff' : '#000',
                   fontSize: 16,
-                  fontWeight: 600,
+                  fontWeight: Platform.OS === 'ios' ? 'semibold' : '600',
                 }}>
                 XRPH{' '}
               </Text>
@@ -79,19 +97,14 @@ const ForceUpdateScreen = ({route, navigation}) => {
                 style={{
                   color: theme === 'dark' ? '#fff' : '#000',
                   fontSize: 16,
-                  fontWeight: 400,
+                  fontWeight: Platform.OS === 'ios' ? 'semibold' : '600',
                 }}>
                 Wallet
               </Text>
             </View>
           </View>
 
-          <View
-            style={{
-              maxWidth: 255,
-              marginLeft: 'auto',
-              marginRight: 'auto',
-            }}>
+          <View>
             {theme === 'dark' ? (
               <UpdateIcoD
                 height={70}
@@ -105,16 +118,28 @@ const ForceUpdateScreen = ({route, navigation}) => {
                 style={{marginLeft: 'auto', marginRight: 'auto'}}
               />
             )}
-            <Text style={styles.question}>
-              A new version of {'\n'} XRPH app is available
+            <Text
+              style={[
+                styles.question,
+                {
+                  maxWidth: 240,
+                  marginLeft: 'auto',
+                  marginRight: 'auto',
+                },
+              ]}>
+              A new version of XRPH app is available
             </Text>
             <Text
               style={[
                 styles.description,
-                {color: theme === 'dark' ? 'rgba(255,255,255,0.5)' : '#8F92A1'},
+                {
+                  color: theme === 'dark' ? 'rgba(255,255,255,0.5)' : '#8F92A1',
+                  maxWidth: 320,
+                  marginLeft: 'auto',
+                  marginRight: 'auto',
+                },
               ]}>
-              Please update to the latest version to {'\n'} continue using the
-              app.
+              {appInfo?.msg}
             </Text>
           </View>
           <View>
@@ -177,7 +202,7 @@ const styling = colors =>
     question: {
       color: colors.dark_text,
       fontSize: 24,
-      fontWeight: 500,
+      fontWeight: Platform.OS === 'ios' ? 'semibold' : '600',
       marginTop: 24,
       textAlign: 'center',
       maxWidth: 255,
@@ -186,7 +211,7 @@ const styling = colors =>
     },
     description: {
       fontSize: 14,
-      fontWeight: 400,
+      fontWeight: Platform.OS === 'ios' ? 'normal' : '400',
       marginTop: 16,
       textAlign: 'center',
     },
@@ -206,7 +231,7 @@ const styling = colors =>
     },
     submitButtonText: {
       fontSize: 18,
-      fontWeight: 500,
+      fontWeight: Platform.OS === 'ios' ? 'medium' : '500',
       color: '#fff',
     },
   });

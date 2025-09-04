@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import firestore from '@react-native-firebase/firestore';
 import {trigger} from 'react-native-haptic-feedback';
 import {useSingup} from '../../../utils/auth.api';
+import {useGetPrices} from '../../../utils/wallet.api';
 // import getTotalBalances from '../../Pin/Handlers/get_total_balances';
 
 AntDesign.loadFont();
@@ -32,6 +33,7 @@ Feather.loadFont();
 
 const PadlockFinalScreen = ({navigation}) => {
   const createUser = useSingup();
+  const getExchangePrices = useGetPrices();
   const {
     padlock,
     padlockErrorMessage,
@@ -46,6 +48,7 @@ const PadlockFinalScreen = ({navigation}) => {
   const setPadlockErrorMessage = useStore(
     state => state.setPadlockErrorMessage,
   );
+  const setTxHistory = useStore(state => state.setTxHistory);
   const setAccounts = useStore(state => state.setAccounts);
   const setActiveAccount = useStore(state => state.setActiveAccount);
   const setEntropy = useStore(state => state.setEntropy);
@@ -133,16 +136,19 @@ const PadlockFinalScreen = ({navigation}) => {
         setLoading(false);
         navigation.navigate('Padlock Final Screen');
       } else {
-        setError('');
+        setError('');  
         await createUser
           .mutateAsync({
             wallet_address: new_account.classicAddress,
             name: accountName,
             password: accountPassword,
-            card_id: new_account.prescription_card.id,
+              card_id: 1,
+            // card_id: new_account.prescription_card.id,
           })
           .then(async response => {
+            const priceResponse = await getExchangePrices?.mutateAsync();
             console.log('------------------create user response ', response);
+            setTxHistory([]);
             setEntropy('');
             const account = {
               ...new_account,
@@ -179,6 +185,7 @@ const PadlockFinalScreen = ({navigation}) => {
                 });
               } else {
                 for (let i = 0; i < currencies.length; i++) {
+                  const lowerCurrency = currencies[i]?.toLowerCase();
                   let sum = 0;
                   for (let j = 0; j < balances.length; j++) {
                     // balances[i].currency
@@ -203,23 +210,23 @@ const PadlockFinalScreen = ({navigation}) => {
 
                     let XRPrate = 0;
                     let XRPHrate = 0;
+                    let USDTRate = 0;
+                    let RLUSDrate = 0;
 
-                    const res = await firestore()
-                      .collection('exchange_rates')
-                      .doc(currencies[i])
-                      .get();
-                    // console.log(res);
                     if (
-                      res['_data'].XRPHrate === undefined ||
-                      res['_data'].XRPrate === undefined
+                      priceResponse[lowerCurrency]?.XRPH === undefined ||
+                      priceResponse[lowerCurrency]?.XRP === undefined ||
+                      priceResponse[lowerCurrency]?.USDT === undefined ||
+                      priceResponse[lowerCurrency]?.RLUSD === undefined
                     ) {
                       setError(
                         'Unfortunately we could not connect your account.',
                       );
                     } else {
-                      const exchangeRates = res['_data'];
-                      XRPrate = exchangeRates.XRPrate;
-                      XRPHrate = exchangeRates.XRPHrate;
+                      XRPrate = priceResponse[lowerCurrency]?.XRP;
+                      XRPHrate = priceResponse[lowerCurrency]?.XRPH;
+                      USDTRate = priceResponse[lowerCurrency]?.USDT;
+                      RLUSDrate = priceResponse[lowerCurrency]?.RLUSD;
                     }
 
                     let amount = 0;
@@ -227,6 +234,8 @@ const PadlockFinalScreen = ({navigation}) => {
                       amount = Number(value * XRPrate);
                     } else if (currency === 'XRPH') {
                       amount = Number(value * XRPHrate);
+                    } else if (currency === 'RLUSD') {
+                      amount = Number(value * RLUSDrate);
                     } else {
                       amount = 0;
                     }
@@ -234,6 +243,9 @@ const PadlockFinalScreen = ({navigation}) => {
                     sum += amount;
                   }
                   sum = sum.toFixed(2);
+                  if (sum < 0) {
+                    sum = 0;
+                  }
                   allBalances[currencies[i]] = String(
                     sum.toLocaleString('en-US'),
                   );
@@ -311,64 +323,66 @@ const PadlockFinalScreen = ({navigation}) => {
     navigation.navigate('Padlock Initial Screen');
   };
 
+  React.useEffect(() => {
+    setTimeout(() => {
+      setPadlockErrorMessage('');
+    }, 3000);
+  }, [padlockErrorMessage]);
+
   return (
     <GestureHandlerRootView>
       <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
-        <ScrollView
-          automaticallyAdjustKeyboardInsets={true}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            minHeight: '100%',
-          }}>
-          <View style={styles.bg}>
-            <TouchableOpacity
-              onPress={() => {
-                goBack();
-              }}
-              style={{
-                position: 'absolute',
-                left: 0,
-                marginLeft: 10,
-                marginTop: 10,
-              }}>
-              <Feather
-                name={'chevron-left'}
-                size={35}
-                color={colors.text}
-                style={styles.backIcon}
+        {!addAccountModalOpen && (
+          <View style={[styles.bg]}>
+            <View style={[styles.column, {gap: 10}]}>
+              <TouchableOpacity
+                onPress={() => {
+                  goBack();
+                }}>
+                <Feather
+                  name={'chevron-left'}
+                  size={35}
+                  color={colors.text}
+                  style={styles.backIcon}
+                />
+              </TouchableOpacity>
+              <Image
+                style={styles.headerImage}
+                source={
+                  theme === 'light'
+                    ? require('../../../assets/img/header_logo.png')
+                    : require('../../../assets/img/header_logo_dark.png')
+                }
               />
-            </TouchableOpacity>
-            <Image
-              style={styles.headerImage}
-              source={
-                theme === 'light'
-                  ? require('../../../assets/img/header_logo.png')
-                  : require('../../../assets/img/header_logo_dark.png')
-              }
-            />
-            <View style={styles.directionsContainer}>
-              <Text style={styles.directionText}>
-                Now enter the code you just wrote down. This is only for
-                security reasons in case you get locked out and need to recover
-                your account.
-              </Text>
-              {padlockErrorMessage.length > 0 && (
-                <Text style={styles.errorMessage}>{padlockErrorMessage}</Text>
-              )}
+              <View style={styles.directionsContainer}>
+                <Text style={styles.directionText}>
+                  Now enter the code you just wrote down. This is only for
+                  security reasons in case you get locked out and need to
+                  recover your account.
+                </Text>
+                {padlockErrorMessage.length > 0 && (
+                  <Text style={styles.errorMessage}>{padlockErrorMessage}</Text>
+                )}
+              </View>
             </View>
-
-            <View style={styles.padlock}>
-              <PadlockInputRow letter={'A'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'B'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'C'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'D'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'E'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'F'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'G'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'H'} updatePadlock={updatePadlock} />
-              <View style={styles.padlockBottom} />
+            <View style={[styles.column, {gap: 10, alignItems: 'center'}]}>
+              <ScrollView
+                automaticallyAdjustKeyboardInsets={true}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}>
+                <View style={styles.padlock}>
+                  <PadlockInputRow letter={'A'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'B'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'C'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'D'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'E'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'F'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'G'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'H'} updatePadlock={updatePadlock} />
+                  <View style={styles.padlockBottom} />
+                </View>
+              </ScrollView>
             </View>
             <View style={styles.slideButtonContainer}>
               <TouchableOpacity
@@ -383,7 +397,6 @@ const PadlockFinalScreen = ({navigation}) => {
                   borderRadius: 10,
                   paddingVertical: 18,
                   paddingHorizontal: 10,
-                  marginBottom: 10,
                 }}>
                 <View style={styles.buttonWrapper}>
                   <Text style={styles.buttonCreateText}>Continue</Text>
@@ -397,9 +410,9 @@ const PadlockFinalScreen = ({navigation}) => {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+        )}
         {addAccountModalOpen && (
-          <View style={styles.bg}>
+          <View style={styles.modalBg}>
             <Modal visible={addAccountModalOpen} transparent={true}>
               {!loading ? (
                 <View style={styles.addAccountModalWrapper}>
@@ -495,7 +508,18 @@ const PadlockFinalScreen = ({navigation}) => {
                   </View>
                 </View>
               ) : (
-                <AddAccountAnimation />
+                <View
+                  style={[
+                    styles.column,
+                    {
+                      backgroundColor: colors.bg,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: '100%',
+                    },
+                  ]}>
+                  <AddAccountAnimation />
+                </View>
               )}
             </Modal>
             {error.length > 0 && (
@@ -514,23 +538,39 @@ const styling = colors =>
   StyleSheet.create({
     bg: {
       backgroundColor: colors.bg,
-      alignItems: 'center',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      height: '100%',
+      gap: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+    },
+    modalBg: {
+      backgroundColor: colors.bg,
       flexDirection: 'column',
       justifyContent: 'space-between',
       height: '100%',
       paddingHorizontal: 10,
+      paddingVertical: 10,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
     },
     headerImage: {
       width: 350,
       height: 65,
-      marginTop: 60,
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     directionsContainer: {
-      marginTop: 20,
       width: '100%',
-      flex: 1,
       paddingHorizontal: 10,
-      marginBottom: 10,
+      flexDirection: 'column',
+      gap: 10,
     },
     backButton: {
       width: 120,
@@ -544,8 +584,9 @@ const styling = colors =>
     buttontextDark: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginLeft: 5,
       marginTop: 0,
     },
@@ -557,7 +598,8 @@ const styling = colors =>
     directionText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
       marginTop: 5,
     },
     note: {
@@ -569,17 +611,17 @@ const styling = colors =>
     padlock: {
       backgroundColor: colors.text_light,
       borderRadius: 10,
-      width: '95%',
+      width: '97%',
       alignItems: 'center',
       justifyContent: 'space-evenly',
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     slideButtonContainer: {
       alignSelf: 'center',
       width: '100%',
-      paddingHorizontal: 10,
-      paddingBottom: 10,
+      paddingHorizontal: 13,
       flexDirection: 'row',
-      marginTop: 22,
     },
     slideButtonThumbStyle: {
       borderRadius: 10,
@@ -599,8 +641,9 @@ const styling = colors =>
     slideButtonTitleStyle: {
       marginLeft: 20,
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.bg,
     },
     inputLabelCharacter: {
@@ -628,8 +671,9 @@ const styling = colors =>
       textAlign: 'right',
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       // marginBottom: 20
     },
     addAccountActionButtons: {
@@ -654,8 +698,9 @@ const styling = colors =>
       textAlign: 'center',
       fontSize: 20,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginRight: 20,
       marginTop: 0,
     },
@@ -673,15 +718,17 @@ const styling = colors =>
     },
     sendModalHeaderText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
     },
     sendModalHeaderTextCreate: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
     },
@@ -693,8 +740,9 @@ const styling = colors =>
       backgroundColor: colors.text_light,
       borderColor: colors.primary,
       padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       borderRadius: 10,
       paddingTop: 14,
@@ -704,8 +752,9 @@ const styling = colors =>
       textAlign: 'left',
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginBottom: 5,
       marginTop: 20,
     },
@@ -727,14 +776,16 @@ const styling = colors =>
     buttonConnectText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonCreateText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonWrapper: {
       flexDirection: 'row',
@@ -749,7 +800,7 @@ const styling = colors =>
     errorMessage: {
       // backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: 'NexaBold',
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
       borderRadius: 20,
       paddingTop: 10,
@@ -758,7 +809,7 @@ const styling = colors =>
     errorMessageText: {
       backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: 'NexaBold',
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
       borderRadius: 20,
       padding: 10,
@@ -774,8 +825,9 @@ const styling = colors =>
       backgroundColor: colors.text_light,
       borderColor: colors.primary,
       padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       borderRadius: 10,
       paddingTop: 14,

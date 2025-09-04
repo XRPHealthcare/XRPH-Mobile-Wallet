@@ -25,7 +25,6 @@ import useStore from '../../../data/store';
 import FolderIcon from '../../../assets/img/folder.svg';
 import FolderIconW from '../../../assets/img/folder-w.svg';
 import LinearGradient from 'react-native-linear-gradient';
-import SelectDropdown from 'react-native-select-dropdown';
 import BugSuccessSheet from './BusSuccessSheet';
 import {launchImageLibrary} from 'react-native-image-picker';
 import Alert from '../../../components/Alert';
@@ -33,6 +32,12 @@ import {getDeviceName, getModel, getVersion} from 'react-native-device-info';
 import storage from '@react-native-firebase/storage';
 import {useAddTrelloCard} from '../../../utils/wallet.api';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {Pressable} from 'react-native';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -47,7 +52,7 @@ const BugReportScreen = ({route, navigation}) => {
   if (theme === 'dark') {
     colors = dark;
   }
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const rnBiometrics = new ReactNativeBiometrics();
   const [bugFiles, setBugFiles] = React.useState([]);
@@ -125,12 +130,13 @@ const BugReportScreen = ({route, navigation}) => {
         }
       }
       const appVersion = getVersion();
+      const workerKey = await AsyncStorage.getItem('worker_key');
       let payload = {
         name: `[${
           Platform.OS == 'ios' ? 'IOS' : 'Android'
         }] [${deviceModel}] [${appVersion}] [${
           isBioSupported ? 'Biometric Supported' : 'Biometric Not Supported'
-        }] ${bugDetail}`,
+        }] [${workerKey || 'ApiKey Not Found'}] ${bugDetail}`,
         desc: {
           userAddress: activeAccount?.classicAddress,
           problem: bugDetail,
@@ -197,22 +203,31 @@ const BugReportScreen = ({route, navigation}) => {
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={goToSettings}>
-              <MaterialCommunityIcons
-                name={'chevron-left'}
-                color={colors.text}
-                size={30}
-              />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Bug Report</Text>
-            <View></View>
+            <Pressable
+              onPress={() => navigation.navigate('Help Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
+              )}
+            </Pressable>
+            <Text style={styles.headerHeading}>Report a Bug</Text>
+            <Text style={{width: 40}}></Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
+
           <ScrollView
             automaticallyAdjustKeyboardInsets={true}
             showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}>
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{paddingHorizontal: 20}}>
+            <Text style={[styles.problemLabel, {marginTop: 24}]}>
+              Problem Explanation
+            </Text>
             <View style={styles.problemContainer}>
-              <Text style={styles.problemLabel}>Problem Explanation</Text>
               <TextInput
                 multiline
                 value={bugDetail}
@@ -224,23 +239,19 @@ const BugReportScreen = ({route, navigation}) => {
                 placeholderTextColor={colors.dark_gray}
               />
             </View>
-            <View style={styles.mediaContainer}>
+            <Text style={[styles.problemLabel, {marginTop: 24}]}>
+              Attach Image/Video Files
+            </Text>
+            <View style={[styles.mediaContainer, {marginTop: 16}]}>
               {theme === 'dark' ? (
                 <FolderIconW height={26} width={28} style={styles.folderIco} />
               ) : (
                 <FolderIcon height={26} width={28} style={styles.folderIco} />
               )}
-              <Text style={styles.placeholder}>Attach Image/Video Files</Text>
               <TouchableOpacity
                 style={styles.browseButton}
                 onPress={browseFiles}>
-                <LinearGradient
-                  colors={['#37C3A6', '#AF45EE']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={styles.browseButton}>
-                  <Text style={styles.browseButtonText}>Browse Files</Text>
-                </LinearGradient>
+                <Text style={styles.browseButtonText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.infoText}>
@@ -322,21 +333,17 @@ const BugReportScreen = ({route, navigation}) => {
               Found in your Settings {'>'} About
             </Text> */}
           </ScrollView>
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={() => (isSubmitLoading ? () => {} : submitBug())}>
-            <LinearGradient
-              colors={['#37C3A6', '#AF45EE']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.submitGradient}>
+          <View style={{paddingHorizontal: 20}}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={() => (isSubmitLoading ? () => {} : submitBug())}>
               {isSubmitLoading ? (
                 <ActivityIndicator size={25} color="#fff" />
               ) : (
                 <Text style={styles.submitButtonText}>Submit</Text>
               )}
-            </LinearGradient>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         </View>
         <BugSuccessSheet
           isSuccessSheet={isSuccessSheet}
@@ -354,7 +361,7 @@ const BugReportScreen = ({route, navigation}) => {
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     safeView: {
       backgroundColor: colors.dark_bg,
@@ -364,38 +371,58 @@ const styling = colors =>
       //   alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 16,
     },
     header: {
-      width: '100%',
-      marginTop: 20,
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 37,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 40,
+      borderBottomStartRadius: 40,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+      width: '100%',
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      zIndex: -1,
+      marginTop: -250,
+      marginLeft: -120,
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
       color: colors.text,
     },
     headerTitle: {
       fontSize: 24,
       color: colors.text,
-      fontWeight: 700,
+      fontWeight: '700',
     },
     problemContainer: {
-      marginTop: 32,
-      paddingHorizontal: 19,
+      marginTop: 18,
+      paddingHorizontal: 14,
       paddingVertical: 15,
       borderRadius: 8,
-      backgroundColor: colors.light_gray_bg,
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
     },
     problemLabel: {
-      fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
-      color: colors.dark_text,
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme === 'dark' ? '#f8f8f8' : '#636363',
     },
     problemInput: {
-      marginTop: 4,
-      fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
-      color: colors.dark_text,
+      fontSize: 14,
+      fontWeight: '400',
+      color: theme === 'dark' ? '#8F92A1' : '#8F92A1',
       paddingTop: 0,
       paddingHorizontal: 0,
       paddingBottom: 10,
@@ -404,9 +431,12 @@ const styling = colors =>
       marginTop: 20,
       paddingHorizontal: 16,
       paddingVertical: 24,
-      backgroundColor: colors.light_gray_bg,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.62)',
       borderWidth: 1,
-      borderColor: colors.dark_gray,
+      borderColor: colors.primary,
       borderStyle: 'dashed',
       borderRadius: 12,
     },
@@ -418,28 +448,29 @@ const styling = colors =>
       marginTop: 12,
       textAlign: 'center',
       fontSize: 14,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
+      fontWeight: '500',
       color: colors.dark_gray,
     },
     browseButton: {
-      maxWidth: 141,
+      maxWidth: 115,
       width: '100%',
-      height: 36,
-      marginTop: 8,
-      borderRadius: 10,
+      height: 30,
+      marginTop: 16,
+      borderRadius: 8,
       marginLeft: 'auto',
       marginRight: 'auto',
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: colors.primary,
     },
     browseButtonText: {
-      fontSize: 14,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
+      fontSize: 12,
+      fontWeight: '500',
       color: '#fff',
     },
     infoText: {
-      color: colors.dark_gray,
+      color: theme === 'dark' ? '#636363' : '#636363',
       fontSize: 12,
       fontWeight: 'normal',
       marginTop: 8,
@@ -469,21 +500,17 @@ const styling = colors =>
     },
     submitButton: {
       width: '100%',
-      borderRadius: 18,
-      height: 58,
+      borderRadius: 8,
+      height: 44,
       marginBottom: 15,
-    },
-    submitGradient: {
-      width: '100%',
-      height: '100%',
-      borderRadius: 18,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: colors.primary,
     },
     submitButtonText: {
-      fontSize: 18,
-      fontWeight: 500,
+      fontSize: 16,
+      fontWeight: '400',
       color: '#fff',
     },
     preview: {

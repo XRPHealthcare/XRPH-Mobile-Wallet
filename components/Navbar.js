@@ -4,21 +4,23 @@ import {View, TouchableOpacity, StyleSheet} from 'react-native';
 import {light, dark} from '../assets/colors/colors';
 import useStore from '../data/store';
 import {trigger} from 'react-native-haptic-feedback';
-import StakeActiveIco from '../assets/img/stakeIco.svg';
-import StakeIco from '../assets/img/stake-w.svg';
-import StakeIcoDark from '../assets/img/stake-d.svg';
-import HistoryActiveIco from '../assets/img/history-active-ico.svg';
-import HistoryIco from '../assets/img/history-ico.svg';
-import HistoryIcoDark from '../assets/img/history-ico-d.svg';
-import HomeActiveIco from '../assets/img/home-active-ico.svg';
-import HomeIco from '../assets/img/home-ico.svg';
-import HomeIcoDark from '../assets/img/home-ico-d.svg';
-import WalletActiveIco from '../assets/img/wallet-active-ico.svg';
-import WalletIco from '../assets/img/wallet-ico.svg';
-import WalletIcoDark from '../assets/img/wallet-ico-d.svg';
-import SettingsActiveIco from '../assets/img/settings-active-ico.svg';
-import SettingsIco from '../assets/img/settings-ico.svg';
-import SettingsIcoDark from '../assets/img/settings-ico-d.svg';
+import {
+  CardActiveDarkIcon,
+  CardActiveIcon,
+  CardInActiveIcon,
+  HomeActiveDarkIcon,
+  HomeActiveIcon,
+  HomeInactiveIcon,
+  SettingActiveDarkIcon,
+  SettingActiveIcon,
+  SettingInActiveIcon,
+  TransactionActiveDarkIcon,
+  TransactionActiveIcon,
+  TransactionInactiveIcon,
+  WalletActiveDarkIcon,
+  WalletActiveIcon,
+  WalletInactiveIcon,
+} from '../assets/img/new-design';
 const Navbar = props => {
   const {theme, hepticOptions} = useStore();
   let colors = light;
@@ -35,35 +37,17 @@ const Navbar = props => {
           style={styles.navigationButton}
           onPress={() => {
             trigger('impactMedium', hepticOptions);
-            props.navigation.navigate('Transactions Screen');
-          }}>
-          <View style={styles.buttonWrapper}>
-            {props.activeIcon == 'transactions' ? (
-              <HistoryActiveIco style={styles.transactionIcon} />
-            ) : theme === 'dark' ? (
-              <HistoryIcoDark style={styles.transactionIcon} />
-            ) : (
-              <HistoryIco style={styles.transactionIcon} />
-            )}
-          </View>
-        </TouchableOpacity>
-      </View>
-      {props.txUpdate && <View style={styles.txUpdate}></View>}
-
-      <View style={styles.navigationButton}>
-        <TouchableOpacity
-          style={styles.navigationButton}
-          onPress={() => {
-            trigger('impactMedium', hepticOptions);
             props.navigation.navigate('Home Screen');
           }}>
           <View style={styles.buttonWrapper}>
             {props.activeIcon == 'home' ? (
-              <HomeActiveIco style={styles.stakeIcon} />
-            ) : theme === 'dark' ? (
-              <HomeIcoDark style={styles.stakeIcon} />
+              theme === 'dark' ? (
+                <HomeActiveDarkIcon style={styles.stakeIcon} />
+              ) : (
+                <HomeActiveIcon style={styles.stakeIcon} />
+              )
             ) : (
-              <HomeIco style={styles.stakeIcon} />
+              <HomeInactiveIcon style={styles.stakeIcon} />
             )}
           </View>
         </TouchableOpacity>
@@ -73,15 +57,37 @@ const Navbar = props => {
           style={styles.navigationButton}
           onPress={() => {
             trigger('impactMedium', hepticOptions);
-            props.navigation.navigate('Stake Screen');
+            props.navigation.navigate('Wallet Screen');
           }}>
           <View style={styles.buttonWrapper}>
-            {props.activeIcon == 'stake' ? (
-              <StakeActiveIco style={styles.stakeIcon} />
-            ) : theme === 'dark' ? (
-              <StakeIcoDark style={styles.stakeIcon} />
+            {props.activeIcon == 'wallet' ? (
+              theme === 'dark' ? (
+                <WalletActiveDarkIcon style={styles.stakeIcon} />
+              ) : (
+                <WalletActiveIcon style={styles.stakeIcon} />
+              )
             ) : (
-              <StakeIco style={styles.stakeIcon} />
+              <WalletInactiveIcon style={styles.stakeIcon} />
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.navigationButton}>
+        <TouchableOpacity
+          style={styles.navigationButton}
+          onPress={() => {
+            trigger('impactMedium', hepticOptions);
+            props.navigation.navigate('Transactions Screen');
+          }}>
+          <View style={styles.buttonWrapper}>
+            {props.activeIcon == 'transactions' ? (
+              theme === 'dark' ? (
+                <TransactionActiveDarkIcon style={styles.stakeIcon} />
+              ) : (
+                <TransactionActiveIcon style={styles.stakeIcon} />
+              )
+            ) : (
+              <TransactionInactiveIcon style={styles.stakeIcon} />
             )}
           </View>
         </TouchableOpacity>
@@ -95,11 +101,13 @@ const Navbar = props => {
           }}>
           <View style={styles.buttonWrapper}>
             {props.activeIcon == 'coupon' ? (
-              <WalletActiveIco style={styles.stakeIcon} />
-            ) : theme === 'dark' ? (
-              <WalletIcoDark style={styles.stakeIcon} />
+              theme === 'dark' ? (
+                <CardActiveDarkIcon style={styles.stakeIcon} />
+              ) : (
+                <CardActiveIcon style={styles.stakeIcon} />
+              )
             ) : (
-              <WalletIco style={styles.stakeIcon} />
+              <CardInActiveIcon style={styles.stakeIcon} />
             )}
           </View>
         </TouchableOpacity>
@@ -113,11 +121,13 @@ const Navbar = props => {
           }}>
           <View style={styles.buttonWrapper}>
             {props.activeIcon == 'settings' ? (
-              <SettingsActiveIco style={styles.settingsIcon} />
-            ) : theme === 'dark' ? (
-              <SettingsIcoDark style={styles.settingsIcon} />
+              theme === 'dark' ? (
+                <SettingActiveDarkIcon style={styles.stakeIcon} />
+              ) : (
+                <SettingActiveIcon style={styles.stakeIcon} />
+              )
             ) : (
-              <SettingsIco style={styles.settingsIcon} />
+              <SettingInActiveIcon style={styles.stakeIcon} />
             )}
           </View>
         </TouchableOpacity>
@@ -130,13 +140,17 @@ const styling = colors =>
   StyleSheet.create({
     navigationButtons: {
       width: '100%',
-      paddingVertical: 15,
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      gap: 20,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-around',
-      borderTopColor: colors?.separator_color,
-      borderTopWidth: 1,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      backgroundColor: 'red',
       marginTop: 5,
+      boxShadow: '0px -2px 22.6px 0px rgba(0, 0, 0, 0.03)',
     },
     navigationButton: {
       width: 50,

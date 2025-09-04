@@ -1,18 +1,61 @@
+import {switchRPC} from './switch_rpc';
+
 const xrpl = require('xrpl');
 
 const send_token = async (
   {seed, to, currency, amount, memo, destinationTag, balances},
   node,
+  rpcUrls,
+  setNode,
 ) => {
   try {
-    const issuerAddress = '';
+    const coins = [
+      {
+        currency: '5852504800000000000000000000000000000000',
+        issuer: 'rM8hNqA3jRJ5Zgp3Xf3xzdZcx2G37guiZk',
+      },
+      {
+        currency: '5553445400000000000000000000000000000000',
+        issuer: 'rcvxE9PS9YBwxtGg1qNeewV6ZB3wGubZq',
+      },
+      {
+        currency: '524C555344000000000000000000000000000000',
+        issuer: 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De',
+      },
+    ];
+    // const coins = [
+    //   {
+    //     currency: 'TST',
+    //     issuer: 'r4aFSABCPBJ1o8fNJGZRG2KBczJNM1hoe6',
+    //   },
+    //   {
+    //     currency: 'USD',
+    //     issuer: 'rPro2b1QdtX4iJu38raatiZTyVqXWYKEtW',
+    //   },
+    // ];
+
     const currencyCode =
       currency === 'XRP'
         ? currency
         : xrpl.convertStringToHex(currency).padEnd(40, 0);
 
+    const currentIssuer = coins.find(coin => coin?.currency === currencyCode);
+    const issuerAddress = currentIssuer?.issuer;
+
     const client = new xrpl.Client(node);
-    await client.connect();
+    try {
+      await client.connect();
+    } catch (e) {
+      // switchRPC(node, rpcUrls).then(res => {
+      //   setNode(res);
+      //   send_token(
+      //     {seed, to, currency, amount, memo, destinationTag, balances},
+      //     node,
+      //     rpcUrls,
+      //     setNode,
+      //   );
+      // });
+    }
     console.log('connected');
 
     const accountA = xrpl.Wallet.fromSeed(seed);
@@ -54,6 +97,7 @@ const send_token = async (
             },
           },
         ],
+        Flags: 131072,
       };
     }
     console.log(send_token_tx_A_to_B);
@@ -103,66 +147,6 @@ const send_token = async (
       }
     }
 
-    // const account_info_A = await client.request({
-    //     command: "account_info",
-    //     account: accountA.classicAddress,
-    //     ledger_index: "validated",
-    // })
-    // console.log(account_info_A.result.account_data.Balance);
-    // const XRPBalanceA = account_info_A.result.account_data.Balance;
-
-    // const gateway_balances_A = await client.request({
-    //     command: "gateway_balances",
-    //     account: accountA.classicAddress,
-    //     ledger_index: "validated",
-    // })
-    // let assets = gateway_balances_A.result.assets;
-
-    // let bals = {
-    //     "XRP": xrpl.dropsToXrp(String(parseInt(XRPBalanceA, 10)-12000000))
-    // };
-
-    // for (let key in assets) {
-
-    //     for (let i = 0; i < assets[key].length; i++) {
-    //         console.log('Object: ', assets[key][i]);
-    //         let currency = "";
-    //         if (assets[key][i].currency.length > 3) { // currency code is either 3 digit or long hex
-    //             currency = Buffer.from(assets[key][i].currency, 'hex').toString('utf8').replace(/\0/g, '');;
-    //         } else {
-    //             currency = assets[key][i].currency;
-    //         }
-
-    //         if (bals.hasOwnProperty(currency)) {
-    //             // update
-    //             let val = Number(bals[currency]);
-    //             val += Number(assets[key][i].value);
-    //             bals[currency] = String(parseInt(val, 10));
-    //         } else {
-    //             // add
-    //             bals[currency] = String(parseInt(assets[key][i].value, 10));
-    //         }
-    //     }
-
-    // }
-
-    // let fromBalances = [];
-    // for (let key in bals) {
-    //     if (key.toString() === 'XRPH') {
-    //         fromBalances.unshift({
-    //             currency: key.toString(),
-    //             value: bals[key]
-    //         })
-    //     } else {
-    //         fromBalances.push({
-    //             currency: key.toString(),
-    //             value: bals[key]
-    //         })
-    //     }
-    // }
-
-    // console.log(fromBalances);
-
     client.disconnect();
 
     return {
@@ -171,6 +155,14 @@ const send_token = async (
     };
   } catch (e) {
     console.log('--------------------error in send--------------', e);
+    // Check if the error string contains 'tecPATH_DRY' to handle this specific case
+  if (typeof e === 'string' && e.includes('tecPATH_DRY')) {
+    return {
+      error:
+        'Please ensure that 1.7 XRP is reserved to establish the RLUSD Trustline, as transactions cannot be completed without it',
+    };
+  }
+
     return {
       error:
         'Error: Trouble Connecting To The Rippled Server. Please check your internet connection.',

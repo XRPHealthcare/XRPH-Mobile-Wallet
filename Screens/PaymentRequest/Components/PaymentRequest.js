@@ -13,11 +13,7 @@ import {
 } from 'react-native';
 
 import _ from 'lodash';
-import {
-  GestureHandlerRootView,
-  ScrollView,
-  TouchableWithoutFeedback,
-} from 'react-native-gesture-handler';
+import {GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -27,13 +23,19 @@ import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
 // import getTotalBalances from '../../Pin/Handlers/get_total_balances';
-import checkConnectionStatus from '../../StartScreen/Handlers/xrpl_connection_status';
 import QRCode from 'react-native-qrcode-svg';
 import {Share} from 'react-native';
 import dynamicLinks from '@react-native-firebase/dynamic-links';
 import firestore from '@react-native-firebase/firestore';
 import SelectDropdown from 'react-native-select-dropdown';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Alert from '../../../components/Alert';
+import {useGetPrices} from '../../../utils/wallet.api';
+import LinearGradient from 'react-native-linear-gradient';
+import BackHeader from '../../../components/BackHeader';
+import HorizontalLineWithText from '../../../components/saperator/HorizontalLineWithText';
+import QRCodeView from '../../../components/QRCodeView';
+import HorizontalLine from '../../../components/saperator/HorizontalLine';
 
 const xrpl = require('xrpl');
 
@@ -45,23 +47,14 @@ Feather.loadFont();
 Ionicons.loadFont();
 
 const PaymentRequest = ({route, navigation}) => {
-  let {
-    activeAccount,
-    theme,
-    exchangeRate,
-    exchangeTo,
-    tokenRate,
-    token,
-    rateLoading,
-    node,
-    accountBalances,
-  } = useStore();
+  const getExchangePrices = useGetPrices();
+  let {activeAccount, theme, exchangeTo, tokenRate, token, accountBalances} =
+    useStore();
   const setExchangeRate = useStore(state => state.setExchangeRate);
   const setRateLoading = useStore(state => state.setRateLoading);
 
   const setToken = useStore(state => state.setToken);
   const setTokenRate = useStore(state => state.setTokenRate);
-  const [isConnected, setIsConnected] = React.useState(false);
   const [isAmountRequest, setIsAmountRequest] = useState(false);
   const [isErrorAlert, setIsErrorAlert] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -81,16 +74,6 @@ const PaymentRequest = ({route, navigation}) => {
       setToken(activeAccount.balances[0]);
       fetchExchangeRates(activeAccount.balances[0]?.currency, 'USD');
     }
-
-    checkConnectionStatus(node).then(res => {
-      if (res) {
-        setIsConnected(true);
-        console.log('connected');
-      } else {
-        setIsConnected(false);
-        console.log('not connected');
-      }
-    });
   }, []);
 
   goToHome = () => {
@@ -98,7 +81,7 @@ const PaymentRequest = ({route, navigation}) => {
   };
   const shareRequestPayment = async () => {
     try {
-      const params = isAmountRequest
+      const params = amount>0
         ? `name=${activeAccount?.name}&address=${activeAccount?.classicAddress}&token=${token?.currency}&amount=${amount}`
         : `name=${activeAccount?.name}&address=${activeAccount?.classicAddress}&token=${token?.currency}`;
       if (!token?.currency) {
@@ -107,15 +90,15 @@ const PaymentRequest = ({route, navigation}) => {
       } else {
         let encodedParams = encodeURIComponent(params);
         const link = await dynamicLinks().buildShortLink({
-          link: `http://?${encodedParams}`,
+          link: `http://xrphwallet.page.link/?${encodedParams}`,
           ios: {
-            bundleId: '',
-            appStoreId: '',
+            bundleId: 'com.xrphealthcare.xrphwallet',
+            appStoreId: '6451218628',
           },
           android: {
-            packageName: '',
+            packageName: 'com.xrphwallet',
           },
-          domainUriPrefix: 'https://',
+          domainUriPrefix: 'https://xrphwallet.page.link',
           social: {
             title:
               isAmountRequest && Number(amount) > 0
@@ -123,7 +106,8 @@ const PaymentRequest = ({route, navigation}) => {
                 : `${activeAccount?.name} is requesting ${token?.currency}`,
             descriptionText:
               'Introducing the XRP Healthcare Decentralized Mobile Wallet: Empowering Users with Unparalleled Control, Savings, and Rewards.',
-            imageUrl: '',
+            imageUrl:
+              'https://firebasestorage.googleapis.com/v0/b/xrphwallet.appspot.com/o/assets%2FGroup%2032.jpg?alt=media&token=7f678b1e-cee2-47c2-ab75-4e2040a367a1',
           },
         });
         await Share.share({
@@ -140,27 +124,34 @@ const PaymentRequest = ({route, navigation}) => {
   const getExchangeRates = async (exchangeFrom, exchangeIn) => {
     let XRPrate = 0;
     let XRPHrate = 0;
+    let USDTrate = 0;
+    let RLUSDrate = 0;
 
-    const res = await firestore()
-      .collection('exchange_rates')
-      .doc(exchangeIn)
-      .get();
-    console.log(res);
+    const response = await getExchangePrices.mutateAsync();
+    const exchangeCurrency = exchangeIn?.toLowerCase();
+
     if (
-      res['_data'].XRPHrate === undefined ||
-      res['_data'].XRPrate === undefined
+      response[exchangeCurrency].XRPH === undefined ||
+      response[exchangeCurrency].XRP === undefined ||
+      response[exchangeCurrency].USDT === undefined ||
+      response[exchangeCurrency].RLUSD === undefined
     ) {
       setError('Unfortunately we could not connect your account.');
     } else {
-      const exchangeRates = res['_data'];
-      XRPrate = exchangeRates.XRPrate;
-      XRPHrate = exchangeRates.XRPHrate;
+      XRPrate = response[exchangeCurrency].XRP;
+      XRPHrate = response[exchangeCurrency].XRPH;
+      USDTrate = response[exchangeCurrency].USDT;
+      RLUSDrate = response[exchangeCurrency].RLUSD;
     }
 
     if (exchangeFrom === 'XRP') {
       return XRPrate;
     } else if (exchangeFrom === 'XRPH') {
       return XRPHrate;
+    } else if (exchangeFrom === 'USDT') {
+      return USDTrate;
+    } else if (exchangeFrom === 'RLUSD') {
+      return RLUSDrate;
     } else {
       return 0;
     }
@@ -191,43 +182,25 @@ const PaymentRequest = ({route, navigation}) => {
       <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
         <View style={styles.bg}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={goToHome}>
-              <MaterialCommunityIcons
-                name={'chevron-left'}
-                color={colors.text}
-                size={30}
-              />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Request</Text>
-            <TouchableOpacity onPress={shareRequestPayment}>
-              <MaterialCommunityIcons
-                name={'share-variant-outline'}
-                color={colors.text}
-                size={20}
-              />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.qrSection}>
-            <View style={styles.qrWrapper}>
-              <QRCode
-                value={activeAccount?.classicAddress}
-                backgroundColor="transparent"
-                color={colors.text}
-              />
-            </View>
-          </View>
-          <View>
-            <Text style={styles.label}>To</Text>
-            <View style={styles.receiverWrapper}>
-              <Text style={styles.receiverName}>{activeAccount?.name}</Text>
-              <Text style={styles.receiverAdress}>
-                {activeAccount?.classicAddress}
-              </Text>
-            </View>
-          </View>
-          <ScrollView automaticallyAdjustKeyboardInsets={true}>
-            <View style={styles.requestWrapper}>
+        <BackHeader
+            title={'Payment Request'}
+            backOnPress={()=>navigation.goBack()}
+            />
+<View>
+<HorizontalLineWithText text={'Scan For Secure XRP Transfer'} color={colors.bg_gray_2} textColor={colors.text_color_gray_1}/>
+</View>
+            
+            <View style={styles.qrSection}>
+<QRCodeView
+data={activeAccount?.classicAddress}
+color={colors.text}
+theme={theme}
+/>
+</View>
+<HorizontalLine color={colors.bg_gray_2} widthStyle={true}/>
+      
+          <ScrollView style={{marginHorizontal:20}} automaticallyAdjustKeyboardInsets={true}>
+            {/* <View style={styles.requestWrapper}>
               <Text style={styles.requestAmountText}>Request with amount</Text>
               <TouchableOpacity
                 style={{
@@ -262,24 +235,37 @@ const PaymentRequest = ({route, navigation}) => {
                   />
                 </View>
               </TouchableOpacity>
+            </View> */}
+            {/* {isAmountRequest && ( */}
+              {/* // <TouchableWithoutFeedback onPress={dismissKeyboard}> */}
+
+              <View>
+            <Text style={styles.label}>Accord</Text>
+            <View style={styles.receiverWrapper}>
+              {/* <Text style={styles.receiverName}>{activeAccount?.name}</Text> */}
+              <Text style={styles.receiverName}>To</Text>
+              <Text style={styles.receiverAdress}>
+                {activeAccount?.classicAddress}
+              </Text>
             </View>
-            {isAmountRequest && (
-              // <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          </View>
+
               <View>
                 <View style={styles.sendModalTokenWrapper}>
-                  <Text
-                    style={{
-                      marginTop: 24,
-                      textAlign: 'left',
-                      fontSize: 16,
-                      color: colors.text,
-                    }}>
-                    Token
+                <Text style={styles.label}>
+                    Token/Network
                   </Text>
 
                   <View style={styles.sendModalToken}>
                     <SelectDropdown
                       data={[
+                        {
+                          currency: 'USDT',
+                          value:
+                            accountBalances?.find(
+                              bnlc => bnlc.currency == 'USDT',
+                            )?.value || 0,
+                        },
                         {
                           currency: 'XRP',
                           value:
@@ -294,68 +280,93 @@ const PaymentRequest = ({route, navigation}) => {
                               bnlc => bnlc.currency == 'XRPH',
                             )?.value || 0,
                         },
+                        {
+                          currency: 'RLUSD',
+                          value:
+                            accountBalances?.find(
+                              bnlc => bnlc.currency == 'RLUSD',
+                            )?.value || 0,
+                        },
                       ]}
+                      defaultValue={token}
                       onSelect={(selectedItem, index) => {
                         setToken(selectedItem);
                         fetchExchangeRates(selectedItem.currency, exchangeTo);
                         const completeRate = parseFloat(tokenRate * amount);
                         setExchangeRate(String(completeRate));
                       }}
-                      buttonTextAfterSelection={(selectedItem, index) => {
-                        // text represented after item is selected
-                        // if data array is an array of objects then return selectedItem.property to render after item is selected
-                        return selectedItem.currency;
-                      }}
-                      rowTextForSelection={(item, index) => {
-                        // text represented for each item in dropdown
-                        // if data array is an array of objects then return item.property to represent item in dropdown
-                        return item.currency;
-                      }}
-                      defaultButtonText={token?.currency}
-                      dropdownStyle={styles.currencyDropdown}
-                      buttonStyle={styles.currencyDropdownButton}
-                      buttonTextStyle={styles.currencyDropdownButtonText}
-                      rowTextStyle={styles.currencyDropdownText}
-                      renderDropdownIcon={isOpened => {
+                      renderButton={(selectedItem, isOpened) => {
                         return (
-                          <FontAwesome
-                            name={isOpened ? 'angle-up' : 'angle-down'}
-                            size={30}
-                            color={colors.text}
-                          />
+                          <View style={styles.currencyDropdownButton}>
+                            <Text style={styles.currencyDropdownButtonText}>
+                              {(selectedItem && selectedItem.currency) ||
+                                'XRPH'}
+                            </Text>
+                            <FontAwesome
+                              name={isOpened ? 'chevron-up' : 'chevron-down'}
+                              size={15}
+                              color={colors.text}
+                              style={{marginRight: 15}}
+                            />
+                          </View>
                         );
                       }}
+                      renderItem={(item, index, isSelected) => {
+                        return (
+                          <View
+                            style={{
+                              ...styles.currencyDropdownItemStyle,
+                              ...(isSelected && {backgroundColor: colors.bg}),
+                            }}>
+                            <Text style={styles.currencyDropdownText}>
+                              {item.currency}
+                            </Text>
+                          </View>
+                        );
+                      }}
+                      dropdownStyle={styles.dropdownMenuStyle}
                     />
                   </View>
                 </View>
-                <TextInput
-                  style={styles.formInput}
+                {/* <View> */}
+                  <View  style={{...styles.formInputContainer}}>
+                  <Text style={[styles.receiverName,{marginTop:5,marginLeft:2}]}>Amount</Text>
+                  <TextInput
+                  style={{...styles.formInput, color: colors.text}}
+                  placeholder="0"
+                  placeholderTextColor={colors.text}
+                  value={amount}
+                  onChangeText={e => setAmount(e)}
+                  keyboardType={
+                    Platform.OS === 'ios' ? 'decimal-pad' : 'decimal-pad'
+                  }
+                  returnKeyType={'done'}
+                />
+                  </View>
+                {/* <TextInput
+                  style={{...styles.formInput, color: colors.dark_gray}}
                   placeholder="0"
                   value={amount}
                   onChangeText={e => setAmount(e)}
                   keyboardType={
-                    Platform.OS === 'ios' ? 'number-pad' : 'decimal-pad'
+                    Platform.OS === 'ios' ? 'decimal-pad' : 'decimal-pad'
                   }
                   returnKeyType={'done'}
-                />
+                /> */}
+                {/* </View> */}
+                <Text style={styles.label}>
+                Approximate Amount
+                  </Text>
                 <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: colors.light_gray_bg,
-                    padding: 20,
-                    marginTop: 20,
-                    marginBottom: 20,
-                    borderRadius: 12,
-                  }}>
+                  style={styles.currencyContainer}>
                   <Text
                     style={{
-                      fontSize: 32,
-                      marginRight: 10,
+                      fontSize: 15,
+                      marginRight: 2,
                       color: colors.text,
-                      fontWeight: Platform.OS === 'ios' ? 'bold' : '600',
+                      fontWeight: '600',
                     }}>
-                    ~
+                    ≈{'  '}$
                   </Text>
                   <TextInput
                     style={styles.formInput2}
@@ -366,21 +377,29 @@ const PaymentRequest = ({route, navigation}) => {
                     readOnly
                   />
                   <Text
-                    style={{
-                      fontSize: 24,
-                      color: colors.light_text,
-                      position: 'absolute',
-                      right: 0,
-                      marginRight: 10,
-                      backgroundColor: colors.light_gray_bg,
-                      fontWeight: Platform.OS === 'ios' ? 'bold' : '600',
-                    }}>
+                    style={styles.currencyTitleStyle}>
                     USD
                   </Text>
                 </View>
               </View>
-              // </TouchableWithoutFeedback>
-            )}
+              {/* // </TouchableWithoutFeedback> */}
+            {/* )} */}
+
+
+  <TouchableOpacity
+                onPress={() => {
+                  shareRequestPayment();
+                }}>
+                <LinearGradient
+                  colors={['#37C3A6', '#AF45EE']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={styles.paymentRequest}>
+                  <Text style={styles.paymentRequestText}>
+                  Share Details
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
           </ScrollView>
           <Alert
             isOpen={isErrorAlert}
@@ -389,6 +408,8 @@ const PaymentRequest = ({route, navigation}) => {
             icon={isErrorAlert ? 'close' : 'check'}
             setIsOpen={setIsErrorAlert}
           />
+
+
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -405,7 +426,8 @@ const styling = colors =>
       //   alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
+      // paddingHorizontal: 20,
+      
     },
     header: {
       width: '100%',
@@ -418,16 +440,16 @@ const styling = colors =>
     headerTitle: {
       fontSize: 24,
       color: colors.text,
-      fontWeight: 700,
+      fontWeight: '700',
     },
     qrSection: {
-      marginTop: 32,
+      marginTop: 2,
       borderRadius: 8,
       padding: 20,
-      backgroundColor: colors.light_gray_bg,
-      flexDirection: 'row',
+      // backgroundColor: colors.light_gray_bg,
+      // flexDirection: 'row',
       justifyContent: 'center',
-      width: '100%',
+      alignItems:'center'
     },
     qrWrapper: {
       padding: 15,
@@ -436,27 +458,31 @@ const styling = colors =>
       borderRadius: 6,
     },
     label: {
-      marginTop: 44,
+       marginTop: 15,
       textAlign: 'left',
       fontSize: 16,
-      color: colors.text,
+      color: colors.text_color_gray_1,
     },
     receiverWrapper: {
-      marginTop: 10,
-      borderRadius: 8,
-      backgroundColor: colors.light_gray_bg,
-      padding: 15,
+      marginTop: 6,
+      borderRadius: 12,
+      borderWidth:1,
+      borderColor:colors.border_gray_light,
+      padding: 8,
+      paddingHorizontal:15,
+      backgroundColor: colors.backGround_color_2,
     },
     receiverName: {
-      fontSize: 16,
-      color: colors.dark_text,
-      fontWeight: 600,
+      fontSize: 14,
+      // color: colors.text_color_gray_1,
+      color:colors.text_placeholder_gray
+      // fontWeight: '600',
     },
     receiverAdress: {
       fontSize: 14,
-      fontWeight: 400,
+      fontWeight: '600',
       marginTop: 5,
-      color: colors.light_text,
+      color: colors.text,
     },
     requestWrapper: {
       marginTop: 34,
@@ -466,25 +492,35 @@ const styling = colors =>
     },
     requestAmountText: {
       fontSize: 14,
-      fontWeight: 500,
+      fontWeight: '500',
       color: colors.text,
     },
-    formInput: {
-      marginTop: 24,
-      padding: 20,
-      backgroundColor: colors.light_gray_bg,
-      fontSize: 32,
+    formInputContainer: {
+       marginTop: 13,
+      paddingVertical:5,
+      paddingHorizontal:12,
+      backgroundColor: colors.backGround_color_2,
+      fontSize: 22,
       borderRadius: 12,
-      color: colors.light_text,
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '600',
+      borderColor:colors.border_gray_light,
+      borderWidth:1,
+    },
+    formInput: {
+      // marginTop: 5,
+      flex:1,
+      fontSize: 14,
+       height: 40,
+      color: colors.text,
+      fontWeight: '600',
+     
     },
     formInput2: {
-      backgroundColor: colors.light_gray_bg,
-      fontSize: 32,
+      // backgroundColor: colors.light_gray_bg,
+      fontSize: 14,
       padding: 0,
       marginRight: 20,
-      color: colors.light_text,
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '600',
+      color: colors.text,
+      fontWeight: '600',
     },
     sendModalTokenWrapper: {
       width: '100%',
@@ -492,35 +528,85 @@ const styling = colors =>
       justifyContent: 'space-between',
     },
     sendModalToken: {
-      backgroundColor: colors.light_gray_bg,
       borderRadius: 12,
-      marginTop: 10,
+      borderWidth:1,
+      borderColor:colors.border_gray_light,
+      marginTop: 6,
+      
     },
-    currencyDropdown: {
+    currencyDropdownItemStyle: {
+      padding: 15,
+      backgroundColor: colors.bg,
+    },
+    dropdownMenuStyle: {
       backgroundColor: colors.light_gray_bg,
-      borderRadius: 12,
+      borderRadius: 10,
     },
     currencyDropdownText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '600',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: '600',
     },
     currencyDropdownButton: {
       width: '100%',
-      height: 80,
+      height: 60,
       marginTop: 0,
       borderRadius: 10,
-      backgroundColor: colors.light_gray_bg,
+      backgroundColor: colors.backGround_color_2,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:'space-between'
+      // gap: 270,
     },
     currencyDropdownButtonText: {
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '600',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: '600',
+      fontSize: 16,
       textAlign: 'left',
       marginLeft: 0,
-      color: colors.light_text,
+      color: colors.text,
       padding: 10,
     },
+    paymentRequest: {
+      height: 60,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
+      marginTop: 20,
+      marginBottom:10,
+      
+    },
+    paymentRequestText: {
+      textAlign: 'center',
+      fontSize: 18,
+      color: '#fff',
+    },
+    currencyContainer:
+      {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderColor:colors.border_gray_light,
+        borderWidth:1,
+        height: 60,
+        padding: 10,
+        marginTop: 5,
+        marginBottom: 20,
+        borderRadius: 12,
+        backgroundColor: colors.backGround_color_2,
+      },
+      currencyTitleStyle:{
+          fontSize: 14,
+          position: 'absolute',
+          right: 0,
+          marginRight: 15,
+          color: colors.text,
+          fontWeight: '600',
+      }
+    
   });
 
 export default PaymentRequest;

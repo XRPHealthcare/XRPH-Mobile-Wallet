@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Switch,
   Touchable,
+  Pressable,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
@@ -21,9 +22,13 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useUpdateAccount} from '../../../utils/auth.api';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
+import LinearGradient from 'react-native-linear-gradient';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -34,7 +39,7 @@ Ionicons.loadFont();
 
 const NodeSettingsScreen = ({navigation}) => {
   const updateUser = useUpdateAccount();
-  const {activeAccount, theme, node, accounts} = useStore();
+  const {activeAccount, theme, node, accounts, rpcUrls} = useStore();
   const setNode = useStore(state => state.setNode);
   const setAccounts = useStore(state => state.setAccounts);
 
@@ -43,7 +48,7 @@ const NodeSettingsScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const changeNode = async newNode => {
     setNode(newNode);
@@ -90,114 +95,188 @@ const NodeSettingsScreen = ({navigation}) => {
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
+            <Pressable onPress={() => navigation.navigate('Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
+              )}
+            </Pressable>
+            <Text style={styles.headerHeading}>Nodes</Text>
+            <Text style={{width: 20}}></Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
+
           <ScrollView style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Settings Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={styles.actionButtonText}>Nodes</Text>
+            <View style={[styles.column, {gap: 16}]}>
+              <Text style={styles.label}>Default Node</Text>
+              {rpcUrls
+                ?.filter(rpc => rpc?.includes('quiknode'))
+                .map((rpc, idx) => (
+                  <LinearGradient
+                    colors={['#37C3A6', '#AF45EE']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 0}}
+                    style={{
+                      padding: rpc === node ? 1 : 0,
+                      borderRadius: 8,
+                    }}
+                    key={idx}>
+                    <Pressable
+                      style={[
+                        styles.settingCard,
+                        {borderWidth: rpc === node ? 0 : 1, gap: 16},
+                      ]}
+                      onPress={() => changeNode(rpc)}>
+                      <View
+                        style={{
+                          height: 20,
+                          width: 20,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor:
+                            rpc === node ? colors.primary : '#E0E0E0',
+                          padding: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                        <View
+                          style={{
+                            height: 15,
+                            width: 15,
+                            borderRadius: 15,
+                            backgroundColor:
+                              rpc === node ? colors.primary : '#E0E0E0',
+                          }}
+                        />
+                      </View>
+                      <View style={[styles.column, {gap: 6, marginTop: -3}]}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            color: colors.text,
+                            fontFamily:
+                              Platform.OS === 'ios'
+                                ? 'LeagueSpartanMedium'
+                                : 'LeagueSpartanMedium',
+                            fontWeight: '500',
+                          }}>
+                          XRPH Default Node
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            color: theme === 'dark' ? '#F8F8F8' : '#636363',
+                            fontFamily:
+                              Platform.OS === 'ios'
+                                ? 'LeagueSpartanMedium'
+                                : 'LeagueSpartanMedium',
+                            fontWeight: '400',
+                          }}>
+                          {rpc?.length > 40 ? rpc?.slice(0, 39) + '...' : rpc}{' '}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </LinearGradient>
+                ))}
             </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
-              <TouchableOpacity
-                style={styles.setting}
-                onPress={() => changeNode('wss://xrplcluster.com/')}>
-                <Text style={styles.settingText}>wss://xrplcluster.com</Text>
-                <Feather
-                  name={'check'}
-                  size={20}
-                  color={
-                    node === 'wss://xrplcluster.com/'
-                      ? colors.primary
-                      : colors.bg
-                  }
-                  style={styles.fingerIcon}
-                />
-              </TouchableOpacity>
-              {/* <Switch
-                            trackColor={{false: colors.text_light, true: colors.secondary}}
-                            thumbColor={colors.text_dark}
-                            ios_backgroundColor={colors.text_light}
-                            onValueChange={changeTheme}
-                            value={theme === 'light' ? false : true}
-                        /> */}
+            <View
+              style={[
+                styles.column,
+                {gap: 16, marginTop: 24, marginBottom: 16},
+              ]}>
+              <Text style={styles.label}>Public Node</Text>
             </View>
-            <View style={styles.setting}>
-              <TouchableOpacity
-                style={styles.setting}
-                onPress={() => changeNode('wss://xrpl.ws/')}>
-                <Text style={styles.settingText}>xrpl.ws</Text>
-                <Feather
-                  name={'check'}
-                  size={20}
-                  color={node === 'wss://xrpl.ws/' ? colors.primary : colors.bg}
-                  style={styles.fingerIcon}
-                />
-              </TouchableOpacity>
-              {/* <Switch
-                            trackColor={{false: colors.text_light, true: colors.secondary}}
-                            thumbColor={colors.text_dark}
-                            ios_backgroundColor={colors.text_light}
-                            onValueChange={changeTheme}
-                            value={theme === 'light' ? false : true}
-                        /> */}
-            </View>
-            <View style={styles.setting}>
-              <TouchableOpacity
-                style={styles.setting}
-                onPress={() => changeNode('wss://s2.ripple.com/')}>
-                <Text style={styles.settingText}>s2.ripple.com</Text>
-                <Feather
-                  name={'check'}
-                  size={20}
-                  color={
-                    node === 'wss://s2.ripple.com/' ? colors.primary : colors.bg
-                  }
-                  style={styles.fingerIcon}
-                />
-              </TouchableOpacity>
-              {/* <Switch
-                            trackColor={{false: colors.text_light, true: colors.secondary}}
-                            thumbColor={colors.text_dark}
-                            ios_backgroundColor={colors.text_light}
-                            onValueChange={changeTheme}
-                            value={theme === 'light' ? false : true}
-                        /> */}
-            </View>
-            <View style={styles.hl}></View>
+
+            {rpcUrls
+              ?.filter(rpc => !rpc?.includes('quiknode'))
+              ?.map((rpc, idx) => (
+                <LinearGradient
+                  colors={['#37C3A6', '#AF45EE']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 0}}
+                  style={{
+                    padding: node === rpc ? 1 : 0,
+                    borderRadius: 8,
+                    marginBottom: 12,
+                  }}
+                  key={idx}>
+                  <Pressable
+                    onPress={() => changeNode(rpc)}
+                    style={[
+                      styles.settingCard,
+                      {borderWidth: node !== rpc ? 1 : 0, gap: 16},
+                    ]}>
+                    <View
+                      style={{
+                        height: 20,
+                        width: 20,
+                        borderRadius: 20,
+                        borderWidth: 1,
+                        borderColor: rpc === node ? colors.primary : '#E0E0E0',
+                        padding: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      <View
+                        style={{
+                          height: 15,
+                          width: 15,
+                          borderRadius: 15,
+                          backgroundColor:
+                            rpc === node ? colors.primary : '#E0E0E0',
+                        }}
+                      />
+                    </View>
+                    <View style={[styles.column, {gap: 6, marginTop: -3}]}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          color: colors.text,
+                          fontFamily:
+                            Platform.OS === 'ios'
+                              ? 'LeagueSpartanMedium'
+                              : 'LeagueSpartanMedium',
+                          fontWeight: '500',
+                        }}>
+                        Node {idx + 1}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: theme === 'dark' ? '#F8F8F8' : '#636363',
+                          fontFamily:
+                            Platform.OS === 'ios'
+                              ? 'LeagueSpartanMedium'
+                              : 'LeagueSpartanMedium',
+                          fontWeight: '400',
+                        }}>
+                        {rpc?.length > 40 ? rpc?.slice(0, 39) + '...' : rpc}{' '}
+                        {rpc?.includes('quiknode') && ' (Default)'}{' '}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </LinearGradient>
+              ))}
           </ScrollView>
-          <Navbar activeIcon="settings" navigation={navigation} />
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
     },
     backButton: {
       width: 50,
@@ -214,8 +293,9 @@ const styling = colors =>
     settingText: {
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     textAndIconWrapper: {
       flexDirection: 'row',
@@ -241,34 +321,78 @@ const styling = colors =>
     },
 
     header: {
-      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      alignItems: 'center',
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme === 'dark' ? '#F8F8F8' : '#636363',
+    },
+    settingCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#414141' : '#fff',
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      flexDirection: 'row',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      zIndex: 1000,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
     },
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'right',
       marginTop: 5,
     },
     accountNameText: {
       fontSize: 16,
       color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginTop: 10,
       textAlign: 'right',
     },
     settingsWrapper: {
       width: '100%',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      backgroundColor: colors.bg,
-      borderRadius: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      // backgroundColor: colors.bg_gray,
     },
     settingsButtonContainer: {
       backgroundColor: colors.bg,
@@ -292,8 +416,9 @@ const styling = colors =>
     actionButtonText: {
       color: colors.text,
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'center',
     },
     visitIcon: {

@@ -1,11 +1,10 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
   View,
-  Platform,
   AppState,
   ActivityIndicator,
   Text,
@@ -20,28 +19,41 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
-import AccountHeader from './AccountHeader';
 import AddAccountModal from './AddAccountModal';
 import AccountActions from './AccountActions';
-import TokenContainer from './TokenContainer';
-import SendModal from './SendModal';
 import ReceiveModal from './ReceiveModal';
 import TxModal from './TxModal';
-// import getExchangeRates from '../Handlers/get_exchange_rates';
-import firestore from '@react-native-firebase/firestore';
 import getAccountBalances from '../Handlers/get_account_balances';
-// import getTotalBalances from '../../Pin/Handlers/get_total_balances';
 import checkConnectionStatus from '../../StartScreen/Handlers/xrpl_connection_status';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {trigger} from 'react-native-haptic-feedback';
 import Alert from '../../../components/Alert';
-import {useIsFocused} from '@react-navigation/native';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 import RNExitApp from 'react-native-exit-app';
 import StakeInfo from '../../StakeScreen/Components/StakeInfo';
+import {
+  useGetAddressBook,
+  useGetPrices,
+  useGetUserPortfolio,
+} from '../../../utils/wallet.api';
+import {socket} from '../../../utils/socket';
+import {parseAccount} from '../Handlers/parse_account';
+import {useNetInfoInstance} from '@react-native-community/netinfo';
+import MaintenanceAlert from './MaintenanceAlert';
+import {firebase} from '@react-native-firebase/firestore';
+import ScanSetting from '../../SettingsScreens/Components/ScanSetting';
+import {getPaymentInfo} from '../../../utils/magazine';
+import XRPHAI from './XRPHAI';
+import PrescriptionCard from './PrescriptionCard';
+import NewsCard from './NewsCard';
+import MagazineCard from './MagazineCard';
+import HealthCare from './Healthcare';
+import {useGetNews} from '../../../utils/new.api';
+import getTransactionHistory from '../../TransactionHistoryScreen/Handlers/get_transaction_history';
+import {getTotalBalances} from '../../../utils/functions/balance';
+import {useLogin} from '../../../utils/auth.api';
 
 const xrpl = require('xrpl');
-
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
 AntDesign.loadFont();
@@ -50,57 +62,77 @@ Feather.loadFont();
 Ionicons.loadFont();
 
 const HomeScreen = ({route, navigation}) => {
+  const txHashRef = React.useRef(null);
+  const [isFirstLaunch, setIsFirstLaunch] = React.useState(true);
+  const {
+    netInfo: {isConnected: isInternetConnected},
+  } = useNetInfoInstance();
   const isFocused = useIsFocused();
+  const {
+    data: addressBook,
+    isLoading: addressBookLoading,
+    refetch: refetchAddressBook,
+  } = useGetAddressBook();
+  const {data: newsCards} = useGetNews();
+  const {data: userLogin} = useLogin();
+
+  const {data: stakingBalance, refetch} = useGetUserPortfolio();
+
+  const getExchangePrices = useGetPrices();
   let {
+    activeConnections,
     activeAccount,
-    destinationAddress,
     token,
     tokenRate,
     amount,
-    memo,
-    destinationTag,
     exchangeTo,
-    exchangeRate,
     accounts,
+    stakingBalances,
     theme,
     node,
+    rpcUrls,
     hepticOptions,
     dynamicLink,
+    isAccountSwitchLoading,
   } = useStore();
   const setNewPadlock = useStore(state => state.setNewPadlock);
   const setAccountBalances = useStore(state => state.setAccountBalances);
-  const setSendTransactionDetails = useStore(
-    state => state.setSendTransactionDetails,
-  );
+  const setTxHistoryLoading = useStore(state => state.setTxHistoryLoading);
+  const setTxHistory = useStore(state => state.setTxHistory);
   const setDestinationAddress = useStore(state => state.setDestinationAddress);
   const setToken = useStore(state => state.setToken);
   const setAmount = useStore(state => state.setAmount);
-  const setMemo = useStore(state => state.setMemo);
-  const setDestinationTag = useStore(state => state.setDestinationTag);
   const setExchangeRate = useStore(state => state.setExchangeRate);
   const setTokenRate = useStore(state => state.setTokenRate);
   const setRateLoading = useStore(state => state.setRateLoading);
   const setAccounts = useStore(state => state.setAccounts);
   const setActiveAccount = useStore(state => state.setActiveAccount);
+  const setStakingBalances = useStore(state => state.setStakingBalances);
   const setDynamicLink = useStore(state => state.setDynamicLink);
-  const [addAccountModalOpen, setAddAccountModalOpen] = React.useState(false);
-  const [sendModalOpen, setSendModalOpen] = React.useState(false);
+  const setNode = useStore(state => state.setNode);
+  const setActiveConnections = useStore(state => state.setActiveConnections);
   const [receiveModalOpen, setReceiveModalOpen] = React.useState(false);
   const [txModalOpen, setTxModalOpen] = React.useState(false);
   const [txUpdate, setTxUpdate] = React.useState(false);
 
   const [loading, setLoading] = React.useState(false);
-  const [isAccountSwitchLoading, setIsAccountSwitchLoading] =
-    React.useState(false);
   const [isConnected, setIsConnected] = React.useState(false);
   const [isErrorAlert, setIsErrorAlert] = React.useState(false);
   const [alertMsg, setAlertMsg] = React.useState('');
+  const [connectionConfirmation, setConnectionConfirmation] =
+    React.useState(false);
+  const [isSwapRequest, setIsSwapRequest] = React.useState(false);
 
-  const [step, setStep] = React.useState(1);
+  const [swapRequest, setSwapRequest] = React.useState(null);
+  const [channelHash, setChannelHash] = React.useState('');
   const appState = React.useRef(AppState.currentState);
   const [appStateVisible, setAppStateVisible] = React.useState(
     appState.current,
   );
+  const [appStatus, setAppStatus] = React.useState(null);
+  const [scanSettingOpen, setScanSettingOpen] = React.useState(false);
+  const [scannedData, setScannedData] = React.useState(null);
+  const [isDataLoading, setIsDataLoading] = React.useState(false);
 
   let colors = light;
   if (theme === 'dark') {
@@ -109,342 +141,315 @@ const HomeScreen = ({route, navigation}) => {
 
   const styles = styling(colors);
 
-  const getAppLaunchLink = async () => {
+  const getAppLaunchLink = async dynamicLink => {
     try {
-      console.log('----------dynamic link---------------', dynamicLink);
+      console.log('----------dynamic link---------------', dynamicLink, 'test');
       if (!dynamicLink) {
-        console.log('-----------no link found---------');
+        console.log('-----------no link found---------', 'test this');
       } else {
         const params = dynamicLink?.split('?')?.[1];
-        const paramsArray = params?.split('&');
-        if (paramsArray?.length) {
-          if (activeAccount.balances.length > 0) {
-            setSendModalOpen(true);
-            paramsArray?.forEach(param => {
-              const [key, value] = param?.split('=');
-              if (key === 'address') {
-                setDestinationAddress(value || '');
-              } else if (key === 'amount') {
-                setAmountAndExRate(value || 0);
-              } else if (key === 'token') {
-                console.log('activeAccount?.balances', activeAccount?.balances);
-                console.log('value', value);
-                let activeToken = activeAccount?.balances?.find(
-                  balance => balance?.currency == value,
-                );
-                console.log('activeToken', activeToken);
-                if (activeToken) {
-                  console.log('setTOken in home screen');
-                  setToken(activeToken);
-                  fetchExchangeRates(activeToken.currency, exchangeTo);
-                }
-              }
+        if (params?.includes('channel_hash')) {
+          const channel_hash = params?.split('=')?.[1];
+          setChannelHash(channel_hash);
+          setDynamicLink('');
+        } else if (params?.includes('qr_id')) {
+          const paramsArray = params?.split('&');
+          let qr_id = paramsArray?.[0]?.split('=')?.[1];
+          let verify_url = paramsArray?.[1]?.split('=')?.[1];
+          try {
+            setScanSettingOpen(true);
+            setIsDataLoading(true);
+            const responseResult = await getPaymentInfo({
+              qr_id: qr_id,
+              verify_url: verify_url,
             });
-            setDynamicLink('');
-          } else {
-            setDynamicLink('');
+            console.log('responseResult-------', responseResult);
+            setIsDataLoading(false);
+            console.log('parsed data-------', qr_id, responseResult);
+            setScanSettingOpen(true);
+            setScannedData({qr_id: qr_id, ...responseResult});
+          } catch (e) {
+            setScanSettingOpen(false);
+            setIsDataLoading(false);
             setIsErrorAlert(true);
-            setAlertMsg('Unable to send from unfunded account.');
+            setAlertMsg('Invalid Payment Details!');
+          }
+        } else if (params?.includes('inputAmount')) {
+          const paramsArray = params?.split('&');
+          let transaction;
+          paramsArray?.forEach(param => {
+            const [key, value] = param?.split('=');
+            if (key === 'fromCoin') {
+              transaction = {...transaction, fromCoin: JSON.parse(value)};
+            } else if (key === 'toCoin') {
+              transaction = {...transaction, toCoin: JSON.parse(value)};
+            } else if (key === 'token') {
+              transaction = {...transaction, token: value};
+            } else if (key === 'inputAmount') {
+              transaction = {...transaction, inputAmount: value};
+            } else if (key === 'outputAmount') {
+              transaction = {...transaction, outputAmount: value};
+            } else if (key === 'id') {
+              transaction = {...transaction, id: value};
+            }
+          });
+          setSwapRequest({
+            token: transaction?.token,
+            id: transaction?.id,
+            transaction,
+          });
+          setIsSwapRequest(true);
+          setDynamicLink('');
+        } else {
+          const paramsArray = params?.split('&');
+          // console.log("i am called paramsArray",paramsArray);
+          if (paramsArray?.length) {
+            // console.log("i am called paramsArray length",paramsArray,paramsArray?.length);
+            if (activeAccount?.balances?.length > 0) {
+              //   console.log("i am called");
+              // navigation.navigate('Send Screen');
+              setTimeout(() => {
+                navigation.navigate('Send Screen');
+              }, 50); // Slight delay to let React stabilize
+              paramsArray?.forEach(param => {
+                const [key, value] = param?.split('=');
+                if (key === 'address') {
+                  setDestinationAddress(value || '');
+                } else if (key === 'amount') {
+                  setAmountAndExRate(value || 0);
+                } else if (key === 'token') {
+                  console.log(
+                    'activeAccount?.balances',
+                    activeAccount?.balances,
+                  );
+                  console.log('value', value);
+                  let activeToken = activeAccount?.balances?.find(
+                    balance => balance?.currency == value,
+                  );
+                  console.log('activeToken', activeToken);
+                  if (activeToken) {
+                    console.log('setTOken in home screen');
+                    setToken(activeToken);
+                    fetchExchangeRates(activeToken.currency, exchangeTo);
+                  }
+                }
+              });
+              setDynamicLink('');
+            } else {
+              setDynamicLink('');
+              setIsErrorAlert(true);
+              setAlertMsg('Unable to send from unfunded account.');
+            }
           }
         }
       }
     } catch {
+      setDynamicLink('');
       //handle errors
     }
   };
 
-  const refreshBalanceListener = () => {
-    const addresses = accounts?.map(item => item?.classicAddress) || [];
-    const client = new xrpl.Client(node);
-    client.connect().then(async () => {
-      await client.connection.request({
-        command: 'subscribe',
-        ledger_index: 'current',
-        accounts: addresses,
-      });
-      client.connection.on('transaction', ev => {
-        refreshBalances(false);
-      });
-      client.connection.on('disconnected', async () => {
-        refreshBalanceListener();
-      });
-
-      client.connection.on('error', async () => {
-        refreshBalanceListener();
-      });
-      return client.connection.request({
-        command: 'subscribe',
-        accounts: addresses,
-      });
-    });
-  };
-
-  React.useEffect(() => {
-    AsyncStorage.getItem('activeAccount').then(res => {
-      if (res) {
-        setActiveAccount(JSON.parse(res));
-      }
-    });
-    console.log('activeAccount', JSON.stringify(activeAccount));
-    if (activeAccount?.balances?.length > 0 && !token) {
-      setToken(activeAccount.balances[0]);
-    }
-    checkConnectionStatus(node)
-      .then(res => {
-        if (res) {
-          setIsConnected(true);
-          console.log('connected');
-          refreshBalanceListener();
-        } else {
-          setIsConnected(false);
-          console.log('not connected');
+  const updateUserStakingBalance = async stakingBalance => {
+    const alreadyExists = stakingBalances?.find(
+      account => account.classicAddress === activeAccount.classicAddress,
+    );
+    if (!alreadyExists) {
+      const newAccount = {
+        classicAddress: activeAccount?.classicAddress,
+        stakingBalance: stakingBalance,
+      };
+      setStakingBalances([...stakingBalances, newAccount]);
+      await AsyncStorage.setItem(
+        'stakingBalances',
+        JSON.stringify([...stakingBalances, newAccount]),
+      );
+    } else {
+      const updatedAccounts = stakingBalances?.map(account => {
+        if (account?.classicAddress === activeAccount?.classicAddress) {
+          return {
+            ...account,
+            stakingBalance: stakingBalance,
+          };
         }
-      })
-      .then(() => {
-        refreshBalances(false);
+        return account;
       });
-
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        refreshBalances(false);
-      }
-
-      appState.current = nextAppState;
-      setAppStateVisible(appState.current);
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [node, isConnected]);
-
-  React.useEffect(() => {
-    getAppLaunchLink();
-  }, [dynamicLink]);
-
-  React.useEffect(() => {
-    if (route.params !== undefined) {
-      let {sendOpen, sendStep, currToken, currAmount} = route.params;
-      // open = sendOpen;
-      // step = sendStep;
-      console.log('PARAMS', route.params);
-      setSendModalOpen(sendOpen);
-      setStep(sendStep);
-      setToken(currToken);
-      setAmount(currAmount);
+      setStakingBalances(updatedAccounts);
+      await AsyncStorage.setItem(
+        'stakingBalances',
+        JSON.stringify(updatedAccounts),
+      );
     }
-  }, [route.params]);
-
-  // useEffect for getting account balances every 3 seconds
-  // monitor balances. when it changes, show notification in home screen
-  // and a little circle to the top right of the tx history icon
-
-  const checkConnection = () => {
-    checkConnectionStatus(node).then(res => {
-      if (res) {
-        setIsConnected(true);
-        console.log('connected');
-      } else {
-        setIsConnected(false);
-        console.log('not connected');
-      }
-    });
   };
 
   const getBalances = async account => {
-    const balances = await getAccountBalances(account, node);
+    const balances = await getAccountBalances(account, node, rpcUrls, setNode);
     setAccountBalances(balances);
+    console.log('fetched balance after switch account', balances);
+
+    AsyncStorage.setItem('accountBalances', JSON.stringify(balances));
     return balances;
   };
 
-  const getTotalBalances = async () => {
-    let updatedAccounts = [];
+  const fetchTrxHistory = async () => {
+    setTxHistoryLoading(true);
+    setTxHistory([]);
+    const history = await getTransactionHistory(activeAccount, node);
+    setTxHistory(history);
+    setTxHistoryLoading(false);
+  };
 
-    for (let accountIndex = 0; accountIndex < accounts.length; accountIndex++) {
-      let allRates = {
-        USD: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-        EUR: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-        GBP: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-      };
-
-      let allBalances = {
-        USD: '0',
-        EUR: '0',
-        GBP: '0',
-      };
-
-      const currencies = ['USD', 'EUR', 'GBP'];
-      const balances = accounts[accountIndex].balances;
-
-      if (balances.length == 0) {
-        updatedAccounts.push({
-          ...accounts[accountIndex],
-          totalBalances: allBalances,
-        });
-      } else {
-        for (let i = 0; i < currencies.length; i++) {
-          const res = await firestore()
-            .collection('exchange_rates')
-            .doc(currencies[i])
-            .get();
-          if (
-            res['_data'].XRPHrate === undefined ||
-            res['_data'].XRPrate === undefined
-          ) {
-            setError('Unfortunately we could not connect your account.');
-          } else {
-            const exchangeRates = res['_data'];
-            allRates[currencies[i]].XRPrate = exchangeRates.XRPrate;
-            allRates[currencies[i]].XRPHrate = exchangeRates.XRPHrate;
-            // XRPrate = exchangeRates.XRPrate;
-            // XRPHrate = exchangeRates.XRPHrate;
-          }
-          let sum = 0;
-
-          for (let j = 0; j < balances.length; j++) {
-            const {currency, value} = balances[j];
-
-            let amount = 0;
-            if (currency === 'XRP') {
-              amount = Number(value * allRates[currencies[i]].XRPrate);
-            } else if (currency === 'XRPH') {
-              amount = Number(value * allRates[currencies[i]].XRPHrate);
-            } else {
-              amount = 0;
-            }
-            sum += amount;
-          }
-
-          sum = sum.toFixed(2);
-          allBalances[currencies[i]] = String(sum.toLocaleString('en-US'));
-        }
-        // get data for XRP and XRPH
-
-        updatedAccounts.push({
-          ...accounts[accountIndex],
-          totalBalances: allBalances,
-        });
+  const refreshBalances = async (showLoading = true) => {
+    console.warn('refreshBalances called from home');
+    try {
+      // Check connection first
+      const isConnected = await checkConnectionStatus(node);
+      if (!isConnected) {
+        console.warn('No connection to XRPL node');
+        setIsErrorAlert(true);
+        setAlertMsg(
+          'Unable to connect to network. Please check your connection.',
+        );
+        return;
       }
-    }
-    return updatedAccounts;
-  };
 
-  const getAccountBalance = async () => {
-    const adjustedAccounts = await getTotalBalances(accounts);
-    return adjustedAccounts;
-  };
+      if (showLoading) {
+        setLoading(true);
+      }
 
-  const refreshBalances = async args => {
-    setLoading(true);
-    const isConnectedLocal = await checkConnectionStatus(node);
-    if (isConnectedLocal || args) {
-      console.log('updating');
+      // Load and validate accounts data
+      const [localAccounts, localActiveAccount] = await Promise.all([
+        AsyncStorage.getItem('accounts'),
+        AsyncStorage.getItem('activeAccount'),
+      ]);
 
-      const previousSavedAccount = await AsyncStorage.getItem(
-        'activeAccount',
-      ).then(res => JSON.parse(res || {}));
+      console.log(
+        '-------- Account holder name------------',
+        localActiveAccount,
+      );
+      console.log('localAccounts', localAccounts);
+      // //name
+      // console.log('localActiveAccount',localActiveAccount);
 
-      console.log('previousSavedAccount', previousSavedAccount);
+      const accounts = parseAccount(localAccounts) || [];
+      const activeAccount = parseAccount(localActiveAccount);
 
-      getBalances(previousSavedAccount).then(balances => {
-        console.log('updated balance', balances);
-        let updatedAccounts = [];
-        for (let account of accounts) {
-          if (account.classicAddress === previousSavedAccount.classicAddress) {
-            console.log(account.balances);
-            console.log(previousSavedAccount.balances);
-            if (_.isEqual(account.balances, balances)) {
-              // no update
-              console.log('nope');
-              setTxUpdate(false);
-            } else {
-              // update
-              trigger('impactMedium', hepticOptions);
-              console.log('UPDATE');
-              setTxModalOpen(true);
-              setTxUpdate(true);
-            }
-            let accountCopy = account;
-            accountCopy.balances = balances;
-            updatedAccounts.push(accountCopy);
-            setActiveAccount(accountCopy);
-            AsyncStorage.setItem(
-              'activeAccount',
-              JSON.stringify(accountCopy),
-            ).then(() => {
-              console.log('active account set asynchronously');
-            });
-          } else {
-            updatedAccounts.push(account);
+      // console.log('accounts',accounts,'activeAccount',activeAccount);
+
+      if (!activeAccount?.classicAddress) {
+        console.warn('No valid active account found');
+        return;
+      }
+
+      // Get exchange rates and balances in parallel
+      const [exchangeRates, balances] = await Promise.all([
+        getExchangePrices.mutateAsync(),
+        getBalances(activeAccount),
+      ]);
+
+      if (!exchangeRates || !balances) {
+        throw new Error('Failed to fetch rates or balances');
+      }
+
+      // Validate balances
+      if (balances.error) {
+        console.error('Error fetching balances:', balances.error);
+        throw new Error(balances.error);
+      }
+
+      // Update accounts with new balances
+      const updatedAccounts = accounts.map(account => {
+        if (account.classicAddress === activeAccount.classicAddress) {
+          const balancesChanged = !_.isEqual(account.balances, balances);
+
+          if (balancesChanged) {
+            // Trigger updates only if balances actually changed
+            fetchTrxHistory();
+            trigger('impactMedium', hepticOptions);
+            setTxModalOpen(true);
+            setTxUpdate(true);
+
+            return {
+              ...account,
+              balances: balances,
+            };
           }
+          setTxUpdate(false);
         }
-        getTotalBalances(updatedAccounts).then(adjustedAccounts => {
-          let adds = new Set();
-          let accs = [];
-          for (let i = 0; i < adjustedAccounts.length; i++) {
-            if (!adds.has(adjustedAccounts[i].classicAddress)) {
-              adds.add(adjustedAccounts[i].classicAddress);
-              accs.push(adjustedAccounts[i]);
-            }
-          }
-          console.log('adds', adds);
-          setAccounts(accs);
-          if (accs?.length) {
-            AsyncStorage.setItem('accounts', JSON.stringify(accs)).then(() => {
-              console.log('accounts set asynchronously');
-            });
-          } else {
-            console.log('previous account will remain active');
-          }
-
-          for (let i = 0; i < adjustedAccounts.length; i++) {
-            if (
-              adjustedAccounts[i].classicAddress ===
-              previousSavedAccount.classicAddress
-            ) {
-              setActiveAccount(adjustedAccounts[i]);
-              AsyncStorage.setItem(
-                'activeAccount',
-                JSON.stringify(adjustedAccounts[i]),
-              ).then(() => {
-                console.log(
-                  'active account set asynchronously&&&&&&&&&&&&&&&&',
-                );
-              });
-            }
-          }
-        });
+        return account;
       });
 
-      setLoading(false);
-    } else {
-      setLoading(false);
-      // do something to show not connected, like modal
-      console.log('not connected');
-      setIsErrorAlert(true);
-      setAlertMsg('Please check your internet connection.');
-    }
-  };
+      // Calculate and validate total balances
+      const adjustedAccounts = await getTotalBalances(
+        updatedAccounts,
+        exchangeRates,
+      );
 
-  const closeSendModal = () => {
-    setSendModalOpen(false);
-    setAmount('');
-    setExchangeRate(0);
-    setDestinationAddress('');
-    setMemo('');
-    setDestinationTag('');
+      if (!adjustedAccounts?.length) {
+        console.warn('No accounts after balance calculation');
+        return;
+      }
+
+      // Verify calculated balances
+      const hasValidBalances = adjustedAccounts.some(account => {
+        const totalBalances = account.totalBalances || {};
+        return Object.values(totalBalances).some(
+          balance => parseFloat(balance) > 0,
+        );
+      });
+
+      if (!hasValidBalances) {
+        console.warn(
+          'All accounts showing zero balances - possible calculation error',
+        );
+        // Consider retrying or using cached values
+      }
+
+      // Update state and storage atomically
+      const updates = [];
+
+      // Filter and deduplicate accounts
+      const uniqueAccounts = [
+        ...new Set(adjustedAccounts.map(acc => acc.classicAddress)),
+      ]
+        .map(address =>
+          adjustedAccounts.find(acc => acc.classicAddress === address),
+        )
+        .filter(Boolean);
+
+      if (uniqueAccounts.length) {
+        updates.push(
+          AsyncStorage.setItem('accounts', JSON.stringify(uniqueAccounts)),
+          setAccounts(uniqueAccounts),
+        );
+      }
+
+      // Update active account
+      const updatedActiveAccount = uniqueAccounts.find(
+        acc => acc.classicAddress === activeAccount.classicAddress,
+      );
+
+      if (updatedActiveAccount) {
+        updates.push(
+          AsyncStorage.setItem(
+            'activeAccount',
+            JSON.stringify(updatedActiveAccount),
+          ),
+          setActiveAccount(updatedActiveAccount),
+        );
+      }
+
+      await Promise.all(updates);
+    } catch (error) {
+      console.error('Error refreshing balances:', error);
+      setIsErrorAlert(true);
+      setAlertMsg(
+        error.message || 'Error updating balances. Please try again.',
+      );
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+    }
   };
 
   const setRates = (newTokenRate, newAmount) => {
@@ -460,27 +465,34 @@ const HomeScreen = ({route, navigation}) => {
   const getExchangeRates = async (exchangeFrom, exchangeIn) => {
     let XRPrate = 0;
     let XRPHrate = 0;
+    let USDTrate = 0;
+    let RLUSDrate = 0;
 
-    const res = await firestore()
-      .collection('exchange_rates')
-      .doc(exchangeIn)
-      .get();
-    console.log(res);
+    const response = await getExchangePrices.mutateAsync();
+    const exchangeCurrency = exchangeIn?.toLowerCase();
+
     if (
-      res['_data'].XRPHrate === undefined ||
-      res['_data'].XRPrate === undefined
+      response[exchangeCurrency].XRPH === undefined ||
+      response[exchangeCurrency].XRP === undefined ||
+      response[exchangeCurrency].USDT === undefined ||
+      response[exchangeCurrency].RLUSD === undefined
     ) {
       setError('Unfortunately we could not connect your account.');
     } else {
-      const exchangeRates = res['_data'];
-      XRPrate = exchangeRates.XRPrate;
-      XRPHrate = exchangeRates.XRPHrate;
+      XRPrate = response[exchangeCurrency].XRP;
+      XRPHrate = response[exchangeCurrency].XRPH;
+      USDTrate = response[exchangeCurrency].USDT;
+      RLUSDrate = response[exchangeCurrency].RLUSD;
     }
 
     if (exchangeFrom === 'XRP') {
       return XRPrate;
     } else if (exchangeFrom === 'XRPH') {
       return XRPHrate;
+    } else if (exchangeFrom === 'USDT') {
+      return USDTrate;
+    } else if (exchangeFrom === 'RLUSD') {
+      return RLUSDrate;
     } else {
       return 0;
     }
@@ -506,30 +518,6 @@ const HomeScreen = ({route, navigation}) => {
     } catch (e) {}
   };
 
-  const prepareNewAccountCreation = () => {
-    setNewPadlock();
-    setAddAccountModalOpen(false);
-    navigation.navigate('Start Screen');
-  };
-
-  const reviewSendTransaction = () => {
-    const transactionDetails = {
-      from: activeAccount.classicAddress,
-      to: destinationAddress,
-      amount: amount,
-      currency: token.currency,
-      memo: memo,
-      amountConversion: exchangeRate,
-      exchangeIn: exchangeTo,
-      transactionFee: '0.00008 XRPH',
-      seed: activeAccount.seed,
-      destinationTag: destinationTag,
-    };
-    setSendTransactionDetails(transactionDetails);
-    setSendModalOpen(false);
-    navigation.navigate('Review Payment Screen');
-  };
-
   const closeTxModal = () => {
     setTxUpdate(false);
     setTxModalOpen(false);
@@ -537,7 +525,7 @@ const HomeScreen = ({route, navigation}) => {
 
   const goToTxHistory = () => {
     closeTxModal();
-    navigation.navigate('Transactions Screen');
+    navigation.navigate('Transactions');
   };
 
   const gestureEndListener = e => {
@@ -549,13 +537,124 @@ const HomeScreen = ({route, navigation}) => {
     //   addAccountModalOpen,
     // );
     if (
-      e?.data?.action?.type === 'GO_BACK' &&
+      (e?.data?.action?.type === 'GO_BACK' ||
+        e?.data?.action?.type === 'POP') &&
       isFocused &&
       accounts?.length !== 0
     ) {
       RNExitApp.exitApp();
     }
   };
+
+  const removeConnectedSwappedDevice = async token => {
+    try {
+      if (activeConnections) {
+        const filteredDevices = activeConnections?.filter(
+          device => device?.token != token,
+        );
+        await AsyncStorage?.setItem(
+          'swap_sessions',
+          JSON.stringify(filteredDevices),
+        );
+        setActiveConnections(filteredDevices);
+      }
+    } catch (e) {
+      console.log('-------------err disconnect', e);
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeAccount?.balances?.length > 0 && !token) {
+      setToken(activeAccount.balances[0]);
+    }
+
+    const subscription = AppState.addEventListener(
+      'change',
+      async nextAppState => {
+        if (
+          appState.current.match(/inactive|background/) &&
+          nextAppState === 'active'
+        ) {
+          const isConnected = await checkConnectionStatus(node);
+          console.warn('called from active/inactive home', isConnected, node);
+          refreshBalances(false);
+        }
+
+        appState.current = nextAppState;
+        setAppStateVisible(appState.current);
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [node]);
+
+  React.useEffect(() => {
+    console.log('dynamicLink', dynamicLink);
+
+    getAppLaunchLink(dynamicLink);
+  }, [dynamicLink]);
+
+  React.useEffect(() => {
+    if (route.params !== undefined) {
+      let {sendOpen, currToken, currAmount} = route.params;
+      if (sendOpen) {
+        navigation.navigate('Send Screen');
+      }
+      setToken(currToken);
+      setAmount(currAmount);
+    }
+  }, [route.params]);
+
+  useEffect(() => {
+    if (channelHash) {
+      setConnectionConfirmation(true);
+    }
+  }, [channelHash]);
+
+  React.useEffect(() => {
+    function onListen(value) {
+      // console.log('---------value', value);
+      setSwapRequest(value);
+      setIsSwapRequest(true);
+    }
+
+    function onDisonnectListed(value) {
+      // console.log('---------value', value);
+      removeConnectedSwappedDevice(value?.token);
+    }
+
+    for (let idx in activeConnections) {
+      if (activeConnections?.[idx]?.session_token) {
+        socket.on(
+          `swap-request-mobile-${activeConnections?.[idx]?.session_token}`,
+          onListen,
+        );
+      }
+      let channel_hash = activeConnections?.[idx]?.channel_data_hash;
+      if (channel_hash) {
+        socket.on(`disconnect-connection-${channel_hash}`, onDisonnectListed);
+      }
+    }
+
+    return () => {
+      for (let idx in activeConnections) {
+        if (activeConnections?.[idx]?.session_token) {
+          socket.off(
+            `swap-request-mobile-${activeConnections?.[idx]?.session_token}`,
+            onListen,
+          );
+        }
+        let channel_hash = activeConnections?.[idx]?.channel_data_hash;
+        if (channel_hash) {
+          socket.off(`disconnect-connection-${channel_hash}`);
+        }
+      }
+    };
+  }, [activeConnections]);
+
   React.useEffect(() => {
     const gestureHandler = navigation.addListener(
       'beforeRemove',
@@ -564,76 +663,233 @@ const HomeScreen = ({route, navigation}) => {
     return gestureHandler;
   }, [isFocused, accounts]);
 
+  React.useEffect(() => {
+    if (!isInternetConnected && !isFirstLaunch) {
+      setIsErrorAlert(true);
+      setAlertMsg('Please check your internet connection.');
+    } else {
+      refetchAddressBook();
+      socket.connect();
+      refreshBalances(false).catch(error => {
+        console.error('Error refreshing balances on connection change:', error);
+      });
+    }
+    setIsFirstLaunch(false);
+  }, [isInternetConnected]);
+
+  React.useEffect(() => {
+    fetchTrxHistory();
+    const unsubscribe = firebase
+      .firestore()
+      .collection('app_info')
+      .onSnapshot(
+        querySnapshot => {
+          const items = [];
+          querySnapshot.forEach(documentSnapshot => {
+            items.push({
+              ...documentSnapshot.data(),
+              key: documentSnapshot.id,
+            });
+          });
+          setAppStatus(items[0]);
+        },
+        error => {
+          console.error('Error fetching data: ', error);
+        },
+      );
+
+    socket.connect();
+
+    return () => {
+      unsubscribe();
+      socket.disconnect();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (stakingBalance) {
+      updateUserStakingBalance(stakingBalance);
+    }
+  }, [stakingBalance]);
+
+  React.useEffect(() => {
+    const connectAndPing = async () => {
+      if (isAccountSwitchLoading) {
+        console.log('Account switch in progress, skipping connection...');
+        return;
+      }
+      // console.error('node from home:', node);
+      const client = new xrpl.Client(node, {
+        connectionTimeout: 60000,
+      });
+
+      await client.connect();
+
+      const intervalId = setInterval(() => {
+        console.log('Sending ping...', client?.isConnected());
+        // if (client?.isConnected()) {
+        client
+          .request({
+            command: 'ping',
+          })
+          .then(() => {
+            console.log('Ping sent and pong received.');
+            console.warn('Ping sent and pong received from home');
+          })
+          .catch(async error => {
+            console.error('Ping failed from home:', error);
+            // Optional: Reconnect or handle failure as needed
+            if (!isAccountSwitchLoading) {
+              clearInterval(intervalId);
+              await client.disconnect();
+              connectAndPing(); // Reconnect and ping again
+            }
+          });
+        // }
+      }, 60000); // Ping every 60 seconds
+
+      client.on('transaction', ev => {
+        console.log('transaction received..............................');
+        if (txHashRef.current !== ev.transaction.hash) {
+          txHashRef.current = ev.transaction.hash;
+          // console.log(JSON.stringify(ev, null, 2));
+          refetch();
+          //  console.warn('called from Ping sent and pong received')
+          if (!isAccountSwitchLoading) {
+            refreshBalances(false);
+          }
+        }
+      });
+
+      if (!isAccountSwitchLoading) {
+        await client.request({
+          command: 'subscribe',
+          accounts: [activeAccount?.classicAddress],
+        });
+      }
+
+      return () => {
+        clearInterval(intervalId);
+        client.disconnect();
+      };
+    };
+
+    if (!isAccountSwitchLoading) {
+      connectAndPing();
+    }
+  }, [
+    activeAccount.classicAddress,
+    isInternetConnected,
+    isAccountSwitchLoading,
+  ]);
+
   // useFocusEffect(
   //   React.useCallback(() => {
-  //     const onBackPress = () => {
-  //       if (receiveModalOpen) {
-  //         setReceiveModalOpen(false);
-  //       } else {
-  //         RNExitApp.exitApp();
-  //       }
-  //       return true;
-  //     };
-
-  //     BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
-  //     return () =>
-  //       BackHandler.removeEventListener('hardwareBackPress', onBackPress);
-  //   }, [receiveModalOpen]),
+  //     refreshBalances(false);
+  //   }, [])
   // );
 
   return (
     <GestureHandlerRootView>
-      <SafeAreaView style={{backgroundColor: colors.g}}>
+      <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
         <View style={styles.bg}>
-          <AccountHeader
-            setAddAccountModalOpen={setAddAccountModalOpen}
-            setIsAccountSwitchLoading={setIsAccountSwitchLoading}
-          />
-          <ScrollView
-            automaticallyAdjustKeyboardInsets={true}
-            showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.homeWrapper}>
+              {appStatus?.isMaintenance && (
+                <MaintenanceAlert
+                  msg={appStatus?.maintenanceMessage}
+                  title={appStatus?.maintenanceTitle}
+                />
+              )}
               <AccountActions
                 fetchExchangeRates={fetchExchangeRates}
-                setReceiveModalOpen={setReceiveModalOpen}
-                setSendModalOpen={setSendModalOpen}
+                setReceiveModalOpen={value => {
+                  navigation.navigate('ReceivePayment');
+                  // setReceiveModalOpen(value)
+                }}
                 loading={loading}
+                setErrorMsg={msg => setAlertMsg(msg)}
+                setErrorAlert={setIsErrorAlert}
+                home={true}
+                navigation={navigation}
+                isStaking={Number(stakingBalance?.totalStakes || 0) > 0}
               />
-
-              <TokenContainer loading={loading} />
-              <StakeInfo />
+              {Number(stakingBalance?.totalStakes || 0) > 0 && (
+                <View
+                  style={[
+                    styles.column,
+                    {gap: 16, paddingHorizontal: 20, marginTop: 24},
+                  ]}>
+                  <Text style={styles.heading}>Staking Info</Text>
+                  <StakeInfo home={true} navigation={navigation} />
+                </View>
+              )}
+              <View
+                style={[
+                  styles.column,
+                  {gap: 16, paddingHorizontal: 20, marginTop: 24},
+                ]}>
+                <Text style={styles.heading}>CHAT XRPH AI</Text>
+                <XRPHAI />
+              </View>
+              {/* <View
+                style={[
+                  styles.column,
+                  {gap: 16, paddingHorizontal: 20, marginTop: 24},
+                ]}>
+                <Text style={styles.heading}>
+                  XRPH Prescription Savings Card
+                </Text>
+                <PrescriptionCard navigation={navigation} />
+              </View> */}
+              <View
+                style={[
+                  styles.row,
+                  {
+                    gap: 16,
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    paddingHorizontal: 20,
+                    marginTop: 24,
+                  },
+                ]}>
+                {newsCards?.news?.[0] && (
+                  <View style={[styles.column, {gap: 16, width: 160}]}>
+                    <Text style={styles.heading}>News</Text>
+                    <NewsCard newses={newsCards?.news} />
+                  </View>
+                )}
+                {newsCards?.magazine && (
+                  <View style={[styles.column, {gap: 16, width: 160}]}>
+                    <Text style={styles.heading}>Magazine</Text>
+                    <MagazineCard magazine={newsCards?.magazine} />
+                  </View>
+                )}
+              </View>
+              <View
+                style={[
+                  styles.column,
+                  {gap: 16, paddingHorizontal: 20, marginTop: 24},
+                ]}>
+                <Text style={styles.heading}>XRPH Healthcare Africa</Text>
+                <HealthCare />
+              </View>
             </View>
           </ScrollView>
 
-          <Navbar
-            activeIcon="home"
-            txUpdate={txUpdate}
+          <ScanSetting
+            scanSettingOpen={scanSettingOpen}
+            setScanSettingOpen={setScanSettingOpen}
             navigation={navigation}
+            scannedData={scannedData}
+            dataLoading={isDataLoading}
           />
 
-          <SendModal
-            sendModalOpen={sendModalOpen}
-            setSendModalOpen={setSendModalOpen}
-            closeSendModal={closeSendModal}
-            destinationAddress={destinationAddress}
-            setAmountAndExRate={setAmountAndExRate}
-            fetchExchangeRates={fetchExchangeRates}
-            reviewSendTransaction={reviewSendTransaction}
-            step={step}
-            setStep={setStep}
-          />
           <ReceiveModal
             receiveModalOpen={receiveModalOpen}
             setReceiveModalOpen={setReceiveModalOpen}
             navigation={navigation}
-          />
-          <AddAccountModal
-            addAccountModalOpen={addAccountModalOpen}
-            setAddAccountModalOpen={setAddAccountModalOpen}
-            prepareNewAccountCreation={prepareNewAccountCreation}
           />
           <TxModal
             txModalOpen={txModalOpen}
@@ -646,7 +902,22 @@ const HomeScreen = ({route, navigation}) => {
             message={alertMsg}
             icon={'close'}
             setIsOpen={setIsErrorAlert}
+            top={50}
           />
+          {/* {connectionConfirmation && (
+            <ConnectionConfirmation
+              connectionConfirmation={connectionConfirmation}
+              setConnectionConfirmation={setConnectionConfirmation}
+              channelHash={channelHash}
+              setChannelHash={setChannelHash}
+            />
+          )} */}
+
+          {/* <SwapRequest
+            isSwapRequest={isSwapRequest}
+            setIsSwapRequest={setIsSwapRequest}
+            swapRequest={swapRequest}
+          /> */}
         </View>
         {isAccountSwitchLoading && (
           <View style={styles.loadingOverlay}>
@@ -664,7 +935,7 @@ const HomeScreen = ({route, navigation}) => {
 const styling = colors =>
   StyleSheet.create({
     safeView: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
     },
     loadingOverlay: {
       position: 'absolute',
@@ -678,111 +949,29 @@ const styling = colors =>
       alignItems: 'center',
     },
     bg: {
-      backgroundColor: colors.bg,
-      alignItems: 'center',
-      flexDirection: 'column',
+      backgroundColor: colors.bg_gray,
       height: '100%',
     },
     homeWrapper: {
+      flexDirection: 'column',
       alignItems: 'center',
       width: '100%',
-      paddingHorizontal: 20,
       flex: 1,
+      paddingBottom: 20,
     },
-    actionButtons: {
-      width: '100%',
-      marginTop: 20,
+    row: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    buttonWrapper: {
-      flexDirection: 'row',
-    },
-    actionButtonText: {
-      paddingBottom: 10,
-      color: colors.text,
-      fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      paddingTop: 10,
-      marginTop: 4,
-    },
-    visitIcon: {
-      marginTop: 12,
-      marginLeft: 25,
-    },
-    addAccountText: {
-      fontSize: 18,
-      color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-    },
-    visitMarketplace: {
-      width: '100%',
-      paddingHorizontal: 10,
-    },
-    visitMarketplaceButton: {
-      width: '100%',
-      alignItems: 'center',
-      backgroundColor: colors.secondary,
-      borderRadius: 20,
-    },
-    sendModalWrapper: {
-      backgroundColor: colors.bg,
-      width: '90%',
-      height: '95%',
-      marginLeft: '5%',
-      marginTop: 15,
-      elevation: 5,
-      borderRadius: 10,
-      justifyContent: 'space-between',
       alignItems: 'center',
     },
-    sendModalHeader: {
+    column: {
+      flexDirection: 'column',
       width: '100%',
-      paddingHorizontal: 10,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 10,
     },
-    sendModalHeaderSpacer: {
-      width: 10,
-    },
-    sendModalHeaderText: {
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+    heading: {
       color: colors.text,
-      textAlign: 'center',
-    },
-    slideButtonContainer: {
-      alignSelf: 'center',
-      width: '100%',
-      paddingHorizontal: 10,
-      paddingBottom: 10,
-    },
-    slideButtonThumbStyle: {
-      borderRadius: 10,
-      backgroundColor: colors.bg,
-      width: 80,
-      elevation: 0,
-    },
-    slideButtonContainerStyle: {
-      backgroundColor: colors.text_light,
-      borderRadius: 10,
-      elevation: 0,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-    },
-    slideButtonUnderlayStyle: {
-      backgroundColor: colors.text_light,
-    },
-    slideButtonTitleStyle: {
       fontSize: 20,
-      color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 50,
+      fontWeight: '600',
+      fontFamily: 'LeagueSpartanMedium',
     },
   });
 

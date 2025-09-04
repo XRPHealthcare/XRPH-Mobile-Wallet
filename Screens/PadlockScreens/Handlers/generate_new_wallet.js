@@ -6,7 +6,9 @@ const generateNewWallet = async (isEntropy, entropy) => {
     // get wallet from entropy string
     const wallet = xrpl.Wallet.fromEntropy(entropy);
 
-    const res = await fetch('');
+    const res = await fetch(
+      'https://secure.unitednetworksofamerica.com/partner/card-downloader.php?id=989&rxgrp=XRPH',
+    );
     const data = await res.text();
 
     const $ = cheerio.load(data);
@@ -22,13 +24,14 @@ const generateNewWallet = async (isEntropy, entropy) => {
       balances: [],
       prescription_card: {
         id: memberId,
-        bin: '',
-        group: '',
+        bin: '610280',
+        group: 'XRPH',
       },
     };
   } else {
     try {
-      const currencyCode = '';
+      const currencyCode = '5852504800000000000000000000000000000000';
+      // const currencyCode = 'TST';
 
       const client = new xrpl.Client('wss://s.altnet.rippletest.net:51233');
       await client.connect();
@@ -36,7 +39,6 @@ const generateNewWallet = async (isEntropy, entropy) => {
       // create issuer account
 
       // load operational account (for testing purposes)
-      const operationalAccount = xrpl.Wallet.fromSeed('');
       // create new accounts and send from operational to new accounts
       // send XRPH from one to the other
 
@@ -52,8 +54,9 @@ const generateNewWallet = async (isEntropy, entropy) => {
         Account: accountA.classicAddress,
         LimitAmount: {
           currency: currencyCode,
-          issuer: '',
-          value: '', // Large limit, arbitrarily chosen
+          issuer: 'rM8hNqA3jRJ5Zgp3Xf3xzdZcx2G37guiZk',
+          // issuer: 'r4aFSABCPBJ1o8fNJGZRG2KBczJNM1hoe6',
+          value: '10000000000', // Large limit, arbitrarily chosen
         },
       };
 
@@ -76,6 +79,63 @@ const generateNewWallet = async (isEntropy, entropy) => {
         };
       }
 
+      // USDT Trustline
+      // const usdtIssuerAddress = 'r4aFSABCPBJ1o8fNJGZRG2KBczJNM1hoe6';
+      // const usdtCurrencyCode = 'USD';
+      const usdtIssuerAddress = 'rcvxE9PS9YBwxtGg1qNeewV6ZB3wGubZq';
+      const usdtCurrencyCode = '5553445400000000000000000000000000000000';
+
+      const trust_set_B = {
+        TransactionType: 'TrustSet',
+        Account: activeAccount.classicAddress,
+        LimitAmount: {
+          currency: usdtCurrencyCode,
+          issuer: usdtIssuerAddress,
+          value: '10000000000', // Large limit, arbitrarily chosen
+        },
+      };
+
+      const ts_prepared_B = await client.autofill(trust_set_B);
+      const ts_signed_B = wallet.sign(ts_prepared_B);
+      console.log('Creating trust line from hot address to issuer...');
+
+      const ts_result_B = await client.submitAndWait(ts_signed_B.tx_blob);
+      console.log('Trustline generated');
+      if (ts_result_B.result.meta.TransactionResult == 'tesSUCCESS') {
+        console.log(
+          `Transaction succeeded: https://livenet.xrpl.org/transactions/${ts_signed_B.hash}`,
+        );
+      } else {
+        throw `Error sending transaction: ${ts_result_B.result.meta.TransactionResult}`;
+      }
+
+      const RLUSD_ISSUER = 'rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De';
+      const RLUSD_CURRENCY_CODE = '524C555344000000000000000000000000000000';
+
+      const trust_set_C = {
+        TransactionType: 'TrustSet',
+        Account: activeAccount.classicAddress,
+        LimitAmount: {
+          currency: RLUSD_CURRENCY_CODE,
+          issuer: RLUSD_ISSUER,
+          value: '10000000000', // Large limit, arbitrarily chosen
+        },
+      };
+
+      const ts_prepared_C = await client.autofill(trust_set_C);
+      const ts_signed_C = wallet.sign(ts_prepared_C);
+      console.log('Creating trust line from hot address to issuer...');
+
+      const ts_result_C = await client.submitAndWait(ts_signed_C.tx_blob);
+      console.log('Trustline generated');
+      if (ts_result_C.result.meta.TransactionResult == 'tesSUCCESS') {
+        console.log(
+          `Transaction succeeded: https://livenet.xrpl.org/transactions/${ts_signed_C.hash}`,
+        );
+      } else {
+        throw `Error sending transaction: ${ts_result_C.result.meta.TransactionResult}`;
+      }
+
       // send XRPH from operational to A
       const send_token_tx_A = {
         TransactionType: 'Payment',
@@ -83,7 +143,8 @@ const generateNewWallet = async (isEntropy, entropy) => {
         Amount: {
           currency: currencyCode,
           value: '500000',
-          issuer: '',
+          issuer: 'rM8hNqA3jRJ5Zgp3Xf3xzdZcx2G37guiZk',
+          // issuer: 'r4aFSABCPBJ1o8fNJGZRG2KBczJNM1hoe6',
         },
         Destination: accountA.classicAddress,
       };
@@ -115,8 +176,15 @@ const generateNewWallet = async (isEntropy, entropy) => {
         account: accountA.classicAddress,
         ledger_index: 'validated',
       });
-      console.log(gateway_balances.result.assets['']);
-      const XRPHBalance = gateway_balances.result.assets[''][0].value;
+      console.log(
+        gateway_balances.result.assets['rM8hNqA3jRJ5Zgp3Xf3xzdZcx2G37guiZk'],
+      );
+      const XRPHBalance =
+        gateway_balances.result.assets['rM8hNqA3jRJ5Zgp3Xf3xzdZcx2G37guiZk'][0]
+          .value;
+      // const XRPHBalance =
+      //   gateway_balances.result.assets['r4aFSABCPBJ1o8fNJGZRG2KBczJNM1hoe6'][0]
+      //     .value;
 
       const balances = [
         {
@@ -131,7 +199,9 @@ const generateNewWallet = async (isEntropy, entropy) => {
 
       client.disconnect();
 
-      const res = await fetch('');
+      const res = await fetch(
+        'https://secure.unitednetworksofamerica.com/partner/card-downloader.php?id=989&rxgrp=XRPH',
+      );
       const data = await res.text();
 
       const $ = cheerio.load(data);
@@ -147,8 +217,8 @@ const generateNewWallet = async (isEntropy, entropy) => {
         balances: balances,
         prescription_card: {
           id: memberId,
-          bin: '',
-          group: '',
+          bin: '610280',
+          group: 'XRPH',
         },
       };
     } catch (e) {

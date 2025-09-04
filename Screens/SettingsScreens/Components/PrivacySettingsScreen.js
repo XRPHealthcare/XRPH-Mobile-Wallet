@@ -13,6 +13,7 @@ import {
   TextInput,
   Platform,
   Switch,
+  Pressable,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
@@ -23,7 +24,6 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
 import Pin from '../../Pin/Components/Pin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import firestore from '@react-native-firebase/firestore';
@@ -31,6 +31,10 @@ import {WebView} from 'react-native-webview';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import {trigger} from 'react-native-haptic-feedback';
 import {useChangePassword} from '../../../utils/auth.api';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -74,7 +78,7 @@ const PrivacySettingsScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const editAccountPassword = () => {
     setErrorMessage('');
@@ -193,6 +197,7 @@ const PrivacySettingsScreen = ({navigation}) => {
   };
 
   const toggleBiometric = value => {
+    console.log('toggle biometric', value);
     setIsBiometricEnabled(value);
     if (value) {
       rnBiometrics.createKeys().then(resultObject => {
@@ -239,103 +244,132 @@ const PrivacySettingsScreen = ({navigation}) => {
 
   return (
     <GestureHandlerRootView>
-      <SafeAreaView style={{backgroundColor: colors.bg}}>
+      <SafeAreaView style={{backgroundColor: colors.bg_gray}}>
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
+            <Pressable onPress={() => navigation.navigate('Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
+              )}
+            </Pressable>
+            <Text style={styles.headerHeading}>Privacy & Security</Text>
+            <Text style={{width: 20}}></Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
+
           <ScrollView style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Settings Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={styles.actionButtonText}>Privacy & Security</Text>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
-              <Text style={styles.settingText}>Password</Text>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={openPasswordChange}>
-                <Text style={styles.editButtonText}>Change Password</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
-              <Text style={styles.settingText}>Pin</Text>
-              <TouchableOpacity style={styles.pinButton} onPress={openPinModal}>
-                <Text style={styles.editButtonText}>Change Pin</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
+            <Text style={[styles.label, {marginBottom: 16}]}>Security</Text>
+            <Pressable
+              onPress={openPasswordChange}
+              style={[styles.settingCard]}>
+              <Text style={[styles.value]}>Change Password</Text>
+              <Feather name="chevron-right" size={20} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={openPinModal}
+              style={[styles.settingCard, {marginTop: 8}]}>
+              <Text style={[styles.value]}>Change Pin</Text>
+              <Feather name="chevron-right" size={20} color={colors.text} />
+            </Pressable>
             {isBioSupported && (
-              <View>
-                <View style={styles.setting}>
-                  <Text style={styles.settingText}>Biometric</Text>
-                  <Switch
-                    trackColor={{false: '#767577', true: colors.primary}}
-                    thumbColor={isBiometricEnabled ? '#fff' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={toggleBiometric}
-                    value={isBiometricEnabled}
+              <View style={[styles.settingCard, {marginTop: 8}]}>
+                <Text style={[styles.value]}>Biometric</Text>
+                <Pressable
+                  onPress={() => toggleBiometric(!isBiometricEnabled)}
+                  style={{
+                    height: 20,
+                    width: 40,
+                    backgroundColor: isBiometricEnabled
+                      ? '#45EE601A'
+                      : '#CCCCCC1A',
+                    marginLeft: 'auto',
+                    borderRadius: 10,
+                    paddingHorizontal: 2,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: isBiometricEnabled
+                      ? 'flex-end'
+                      : 'flex-start',
+                  }}>
+                  <View
+                    style={{
+                      height: 16,
+                      width: 16,
+                      borderRadius: 16,
+                      backgroundColor: isBiometricEnabled
+                        ? '#03F982'
+                        : '#CCCCCC',
+                    }}
                   />
-                </View>
-                <View style={styles.hl}></View>
+                </Pressable>
               </View>
             )}
-            <View style={styles.setting}>
-              <Text style={styles.settingText}>
-                Privacy Statement To Our Users
-              </Text>
-              <TouchableOpacity
-                style={styles.viewButton}
-                onPress={() => setPrivacyModalOpen(true)}>
-                {/* <TouchableOpacity style={styles.viewButton} onPress={() => navigation.navigate('Privacy Policy Screen')}> */}
-                <Text style={styles.editButtonText}>View</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingCol}>
-              <Text style={styles.settingText}>
+            <Text style={[styles.label, {marginBottom: 16, marginTop: 24}]}>
+              Privacy
+            </Text>
+            <Pressable
+              onPress={() => setPrivacyModalOpen(true)}
+              style={[styles.settingCard]}>
+              <Text style={[styles.value]}>Privacy Statements</Text>
+              <Feather name="chevron-right" size={20} color={colors.text} />
+            </Pressable>
+            <View style={[styles.settingCol, {marginTop: 24}]}>
+              <Text style={[styles.value, {fontWeight: '600'}]}>
                 What Information We Do Store:
               </Text>
-              <Text></Text>
-              <Text style={styles.settingTextLight}>
-                Your public wallet address, your account password, your account
-                name, and your XRPH prescription savings card information.
-              </Text>
+              <View
+                style={[
+                  styles.row,
+                  {gap: 8, marginTop: 10, alignItems: 'flex-start'},
+                ]}>
+                <View
+                  style={{
+                    height: 4,
+                    width: 4,
+                    borderRadius: 6,
+                    marginTop: 8,
+                    backgroundColor: theme === 'dark' ? '#f8f8f8' : '#636363',
+                  }}
+                />
+                <Text style={[styles.settingTextLight]}>
+                  Your public wallet address, your account password, your
+                  account name, and your XRPH prescription savings card
+                  information.
+                </Text>
+              </View>
             </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingCol}>
-              <Text style={styles.settingText}>
+            <View style={[styles.settingCol, {marginTop: 12}]}>
+              <Text style={[styles.value, {fontWeight: '600'}]}>
                 What Information We Do NOT Store:
               </Text>
-              <Text></Text>
-              <Text style={styles.settingTextLight}>
-                Your public and private keys, your secret key, your padlock
-                combination, your pin, and any other account information that
-                isn't listed above.
-              </Text>
+              <View
+                style={[
+                  styles.row,
+                  {gap: 8, marginTop: 10, alignItems: 'flex-start'},
+                ]}>
+                <View
+                  style={{
+                    height: 4,
+                    width: 4,
+                    borderRadius: 6,
+                    marginTop: 8,
+                    backgroundColor: theme === 'dark' ? '#f8f8f8' : '#636363',
+                  }}
+                />
+                <Text style={[styles.settingTextLight]}>
+                  Your public and private keys, your secret key, your padlock
+                  combination, your pin, and any other account information that
+                  isn't listed above.
+                </Text>
+              </View>
             </View>
-            <View style={styles.hl}></View>
           </ScrollView>
-          <Navbar activeIcon="settings" navigation={navigation} />
 
           <Modal visible={pwModalOpen} transparent={true}>
             <View style={styles.addAccountModalWrapper}>
@@ -466,7 +500,7 @@ const PrivacySettingsScreen = ({navigation}) => {
                   style={{
                     display: errorMessage === '' ? 'none' : 'flex',
                     marginTop: 20,
-                    fontFamily: 'NexaBold',
+                    fontFamily: 'LeagueSpartanMedium',
                   }}>
                   {errorMessage}
                 </Text>
@@ -568,14 +602,13 @@ const PrivacySettingsScreen = ({navigation}) => {
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
     },
     saveButton: {
       flexDirection: 'row',
@@ -590,18 +623,62 @@ const styling = colors =>
     },
     sendModalHeaderText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
     },
     header: {
-      flexDirection: 'column',
-      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      width: '95%',
-      marginTop: 10,
-      marginBottom: 10,
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme === 'dark' ? '#F8F8F8' : '#636363',
+    },
+    value: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    settingCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#414141' : '#ededed',
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 14,
+      zIndex: 1000,
     },
     checkIcon: {
       marginTop: 5,
@@ -619,7 +696,7 @@ const styling = colors =>
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: 'NexaBold',
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
       alignSelf: 'center',
       marginTop: 30,
@@ -686,8 +763,9 @@ const styling = colors =>
       textAlign: 'right',
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       // marginBottom: 20
     },
     addAccountActionButtons: {
@@ -711,8 +789,9 @@ const styling = colors =>
       textAlign: 'center',
       fontSize: 16,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     noButtonSpacer: {
       height: 70,
@@ -725,8 +804,9 @@ const styling = colors =>
       backgroundColor: colors.text_light,
       borderColor: colors.primary,
       padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       borderRadius: 10,
       paddingTop: 14,
@@ -739,8 +819,9 @@ const styling = colors =>
       backgroundColor: colors.text_light,
       borderColor: colors.primary,
       padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       borderRadius: 10,
       paddingTop: 14,
@@ -771,10 +852,11 @@ const styling = colors =>
     },
     editButtonText: {
       fontSize: 14,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.bg,
-      marginTop: 4,
+      marginTop: -4,
     },
     pinButton: {
       width: 110,
@@ -807,18 +889,19 @@ const styling = colors =>
       flexDirection: 'column',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      paddingVertical: 10,
     },
     settingText: {
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     settingTextLight: {
-      fontSize: 16,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
+      fontSize: 12,
+      color: theme === 'dark' ? '#f8f8f8' : '#636363',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
     },
     backButton: {
       width: 50,
@@ -847,35 +930,36 @@ const styling = colors =>
       marginLeft: 0,
       marginTop: 0,
     },
-    header: {
-      width: '100%',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
-    },
+
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'right',
       marginTop: 5,
     },
     accountNameText: {
       fontSize: 16,
       color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginTop: 10,
       textAlign: 'right',
     },
     settingsWrapper: {
       width: '100%',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      backgroundColor: colors.bg,
-      borderRadius: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      // backgroundColor: colors.bg_gray,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
     },
     settingsButtonContainer: {
       // width: '107%',
@@ -900,8 +984,9 @@ const styling = colors =>
     actionButtonText: {
       color: colors.text,
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'center',
     },
     backIcon: {
@@ -926,8 +1011,9 @@ const styling = colors =>
     errorMessageText: {
       backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       padding: 10,
       marginBottom: 10,

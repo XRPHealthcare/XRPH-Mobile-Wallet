@@ -10,18 +10,18 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  TextInput
-,Platform} from 'react-native';
+  TextInput,
+  Platform,
+} from 'react-native';
 import SlideButton from 'rn-slide-button';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import { light, dark } from '../../../assets/colors/colors';
+import {light, dark} from '../../../assets/colors/colors';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import SelectDropdown from 'react-native-select-dropdown';
 import useStore from '../../../data/store';
 
 FontAwesome.loadFont();
@@ -32,176 +32,225 @@ Feather.loadFont();
 Ionicons.loadFont();
 
 const PaymentSuccessScreen = ({navigation}) => {
-    let { sendTransactionDetails, theme } = useStore();
+  let {sendTransactionDetails, theme, activeAccount} = useStore();
 
-    let colors = light;
-    if (theme === 'dark') {
-        colors = dark
-    }
+  let colors = light;
+  if (theme === 'dark') {
+    colors = dark;
+  }
 
-    const styles = styling(colors);
-    
-    return (
-        <GestureHandlerRootView>
-        <SafeAreaView style={{backgroundColor: colors.bg}}>
-            <StatusBar />
-            <View style={styles.bg}>
-                <View style={styles.header}>
-                    <View style={styles.circle}>
-                        <Feather name={"check"} size={75} color={colors.bg} style={styles.checkIcon} />
-                    </View>
-                    <Text style={styles.headerText}>Payment Success!</Text>
-                </View>
-                <View style={styles.transactionCard}>
-                    <Text style={styles.amount}>{sendTransactionDetails.amount} {sendTransactionDetails.currency}</Text>
-                    {/* <Text style={styles.conversion}><Text style={styles.inputLabelCharacter}>~</Text>{sendTransactionDetails.amountConversion}</Text> */}
-                    <View style={styles.horizontalLine}></View>
-                    <Text style={styles.label}>From</Text>
-                    <Text style={styles.text}>{sendTransactionDetails.from}</Text>
-                    <View style={styles.horizontalLine}></View>
-                    <Text style={styles.label}>To</Text>
-                    <Text style={styles.text}>{sendTransactionDetails.to}</Text>
-                    <View style={styles.horizontalLine}></View>
-                    <Text style={styles.label}>Transaction Fee</Text>
-                    <Text style={styles.text}>{sendTransactionDetails.transactionFee}</Text>
-                    <View style={styles.horizontalLine}></View>
-                    <Text style={styles.label}>Memo</Text>
-                    <Text style={styles.text}>{sendTransactionDetails.memo}</Text>
-                    <View style={styles.horizontalLine}></View>
-                    <Text style={styles.label}>Destination Tag</Text>
-                    <Text style={styles.text}>{sendTransactionDetails.destinationTag}</Text>
-                    <View style={styles.horizontalLine}></View>
-                </View>
-                <View style={styles.visitMarketplace}>
-                    <TouchableOpacity style={styles.visitMarketplaceButton} onPress={() => navigation.navigate('Home Screen')}>
-                        <View style={styles.buttonWrapper}>
-                            <Text style={styles.actionButtonText}>Back to Home Screen</Text>
-                            <AntDesign name={"right"} size={20} color={colors.text} style={styles.visitIcon} />
-                        </View>
-                    </TouchableOpacity>
-                </View>
+  const styles = styling(colors, theme);
+
+  return (
+    <GestureHandlerRootView>
+      <SafeAreaView style={{backgroundColor: colors.bg}}>
+        <StatusBar />
+        <View style={styles.bg}>
+          <View style={styles.header}>
+            <View style={styles.circle}>
+              <Feather
+                name={'check'}
+                size={50}
+                color={colors.bg}
+                style={styles.checkIcon}
+              />
             </View>
-        </SafeAreaView>
-        </GestureHandlerRootView>
-    );
+            <Text style={styles.headerText}>Payment Success!</Text>
+          </View>
+          <View style={styles.transactionCard}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+              <Text style={styles.amount}>
+                {sendTransactionDetails.amount}{' '}
+              </Text>
+              <Text style={styles.amountCurrency}>
+                {sendTransactionDetails.currency}
+              </Text>
+            </View>
+            <View style={[styles.horizontalLine, {marginTop: 32}]}></View>
+            <Text style={[styles.label, {marginTop: 16}]}>From</Text>
+            <Text style={styles.text}>{sendTransactionDetails.from}</Text>
+            <Text style={[styles.label, {marginTop: 12}]}>To</Text>
+            <Text style={styles.text}>{sendTransactionDetails.to}</Text>
+            <Text style={[styles.label, {marginTop: 12}]}>Transaction Fee</Text>
+            <Text style={styles.text}>
+              {sendTransactionDetails.transactionFee}
+            </Text>
+            <View style={[styles.horizontalLine, {marginVertical: 16}]}></View>
+            <Text style={[styles.label]}>Memo</Text>
+            <Text style={styles.text}>{sendTransactionDetails.memo}</Text>
+            <Text style={[styles.label, {marginTop: 12}]}>Destination Tag</Text>
+            <Text style={styles.text}>
+              {sendTransactionDetails.destinationTag}
+            </Text>
+          </View>
+          <View style={styles.visitMarketplace}>
+            <TouchableOpacity
+              style={styles.visitMarketplaceButton}
+              onPress={() => navigation.navigate('Home Screen')}>
+              <View style={styles.buttonWrapper}>
+                <Text style={styles.actionButtonText}>Back to Home Screen</Text>
+                <AntDesign
+                  name={'right'}
+                  size={20}
+                  color={colors.bg}
+                  style={styles.visitIcon}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    </GestureHandlerRootView>
+  );
 };
 
-const styling = colors => StyleSheet.create({
+const styling = (colors, theme) =>
+  StyleSheet.create({
     bg: {
-        backgroundColor: colors.bg,
-        alignItems: 'center',
-        flexDirection: 'column',
-        height: '100%',
-        paddingHorizontal: 10,
+      backgroundColor: colors.bg_gray,
+      alignItems: 'center',
+      flexDirection: 'column',
+      height: '100%',
+      paddingHorizontal: 20,
     },
     visitMarketplace: {
-        alignSelf: 'center',
-        width: '100%',
-        paddingHorizontal: 10,
-        position: 'absolute',
-        bottom: 10
+      alignSelf: 'center',
+      width: '100%',
+      paddingHorizontal: 10,
+      position: 'absolute',
+      bottom: 10,
     },
     visitMarketplaceButton: {
-        width: '100%',
-        marginLeft: '2.5%',
-        alignItems: 'center',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        backgroundColor: colors.secondary,
-        borderRadius: 20,
-        position: 'absolute',
-        bottom: 10,
+      width: '100%',
+      height: 44,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      position: 'absolute',
+      bottom: 10,
     },
     visitIcon: {
-        marginTop: 10,
-        marginLeft: 35
+      marginTop: 2,
+      marginLeft: 5,
     },
     buttonWrapper: {
-        flexDirection: 'row'
+      flexDirection: 'row',
     },
     actionButtonText: {
-        paddingBottom: 10,
-        color: colors.text,
-        fontSize: 16,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        paddingTop: 10,
-        marginTop: 4
+      color: colors.bg,
+      fontSize: 16,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     header: {
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '90%',
-        marginTop: 50,
-        marginBottom: 50
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: '90%',
+      marginTop: 20,
+      marginBottom: 20,
     },
     circle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: colors.secondary,
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
+      width: 75,
+      height: 75,
+      borderRadius: 50,
+      backgroundColor: colors.secondary,
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     checkIcon: {
-        marginTop: 5
+      marginTop: 5,
     },
     inputLabelCharacter: {
-        fontFamily: 'Helvetica',
+      fontFamily: 'Helvetica',
     },
     headerText: {
-        fontSize: 26,
-        color: colors.text,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        alignSelf: 'center',
-        marginTop: 30
+      fontSize: 26,
+      color: colors.text,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      alignSelf: 'center',
+      marginTop: 30,
     },
     transactionCard: {
-        backgroundColor: colors.bg,
-        width: '95%',
-        // elevation: 5,
-        borderRadius: 10,
-        justifyContent: 'space-between',
-        flexDirection: 'column',
-        marginTop: -20
+      backgroundColor: colors.bg_otp_input,
+      borderWidth: 1,
+      borderColor: colors.border_gray,
+      width: '100%',
+      // elevation: 5,
+      borderRadius: 20,
+      justifyContent: 'space-between',
+      flexDirection: 'column',
+      paddingVertical: 24,
+      paddingHorizontal: 14,
+    },
+    accountName: {
+      fontSize: 22,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
+    },
+    accountAddress: {
+      fontSize: 12,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
     },
     amount: {
-        fontSize: 30,
-        color: colors.primary,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        marginLeft: 10,
-        marginTop: 10,
+      fontSize: 36,
+      color: '#03F982',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
+    },
+    amountCurrency: {
+      fontSize: 20,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '700' : '700',
     },
     conversion: {
-        fontSize: 20,
-        color: colors.text_dark,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        marginLeft: 10,
-        marginBottom: 2
+      marginTop: 4,
+      fontSize: 14,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      marginBottom: 2,
     },
     horizontalLine: {
-        width: '95%',
-        marginLeft: '2.5%',
-        marginBottom: 5,
-        height: 2,
-        backgroundColor: colors.text_dark
+      width: '100%',
+      height: 2,
+      backgroundColor: theme === 'dark' ? '#414141' : '#f8f8f8',
     },
     label: {
-        fontSize: 12,
-        color: colors.text_dark,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        marginLeft: 10,
-        marginTop: 5,
+      fontSize: 12,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     text: {
-        fontSize: 14,
-        color: colors.text,
-        fontFamily: Platform.OS === "ios" ? "NexaBold" : "NexaBold", fontWeight: Platform.OS === "ios" ? "bold" : "100",
-        marginLeft: 10,
-        marginTop: 5,
-        marginBottom: 5
+      fontSize: 12,
+      color: colors.text_dark,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      marginTop: 4,
     },
-});
+  });
 
 export default PaymentSuccessScreen;

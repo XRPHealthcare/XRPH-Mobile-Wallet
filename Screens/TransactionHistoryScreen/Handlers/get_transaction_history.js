@@ -1,25 +1,68 @@
 const xrpl = require('xrpl');
 const moment = require('moment');
 
-const getTransactionHistory = async (account, node) => {
+const getCurrencyString = currencyCode => {
+  try {
+    // If it's already a 3-letter code, return it as is
+    if (currencyCode.length === 3) {
+      return currencyCode;
+    }
+    // Only try to convert if it's a hex string
+    return xrpl.convertHexToString(currencyCode);
+  } catch (e) {
+    // If conversion fails, return the original code
+    console.log('Currency conversion warning:', currencyCode);
+    return currencyCode;
+  }
+};
+
+const getTransactionHistory = async (account, node, limit = 100) => {
   let client;
   try {
-    // To get All history, we are adding S2 Node hardecoded.
+    // To get All history, we are adding S2 Node hardcoded.
     client = new xrpl.Client('wss://s2.ripple.com/');
     // client = new xrpl.Client('wss://testnet.xrpl-labs.com/');
     await client.connect();
 
-    const history = await client.request({
-      command: 'account_tx',
-      account: account.classicAddress,
-      ledger_index: 'current',
-      ledger_index_min: -1,
-      ledger_index_max: -1,
-    });
+    // Initialize variables for pagination
+    let marker = undefined;
+    let transactions = [];
+    let hasMore = true;
 
+    // Fetch transactions in batches until we have enough or there are no more
+    while (hasMore && transactions.length < limit) {
+      const request = {
+        command: 'account_tx',
+        account: account.classicAddress,
+        // Use validated ledgers only for consistency
+        ledger_index_min: -1,
+        ledger_index_max: -1,
+        // Limit each batch request
+        limit: Math.min(limit - transactions.length, 200),
+        forward: false, // Get most recent first
+      };
+      if (marker) {
+        request.marker = marker;
+      }
+
+      const response = await client.request(request);
+
+      if (
+        !response?.result?.transactions ||
+        response.result.transactions.length === 0
+      ) {
+        hasMore = false;
+        break;
+      }
+
+      transactions = [...transactions, ...response.result.transactions];
+
+      // Update marker for next page
+      marker = response.result.marker;
+      hasMore = marker !== undefined;
+    }
     let formattedHistory = [];
-    console.log('history', history);
-    for (let i = 0; i < history.result.transactions.length; i++) {
+    for (let i = 0; i < transactions.length; i++) {
       let transaction = {
         accountInvolved: '',
         transactionType: '',
@@ -31,13 +74,10 @@ const getTransactionHistory = async (account, node) => {
         hash: '',
       };
 
-      transaction.accountInvolved = history.result.transactions[i].tx.Account;
-      const tx = history.result.transactions[i].tx;
-      console.log(tx);
+      const tx = transactions[i].tx;
+      transaction.accountInvolved = tx.Account;
 
-      if (
-        history.result.transactions[i].meta.TransactionResult !== 'tesSUCCESS'
-      ) {
+      if (transactions[i].meta.TransactionResult !== 'tesSUCCESS') {
         transaction.transactionType = 'Payment Failed';
         transaction.accountInvolved = tx.Destination;
       } else {
@@ -64,38 +104,32 @@ const getTransactionHistory = async (account, node) => {
 
       transaction.hash = tx.hash;
 
-      if (history.result.transactions[i].tx.Amount) {
-        if (typeof history.result.transactions[i].tx.Amount === 'object') {
-          transaction.amount = Number(
-            history.result.transactions[i].tx.Amount.value,
-          ).toLocaleString('en-US');
-          transaction.currency = xrpl.convertHexToString(
-            history.result.transactions[i].tx.Amount.currency,
-          );
+      if (tx.Amount) {
+        if (typeof tx.Amount === 'object') {
+          transaction.amount = Number(tx.Amount.value).toLocaleString('en-US');
+          transaction.currency = getCurrencyString(tx.Amount.currency);
         } else {
           transaction.amount = Number(
-            Number(history.result.transactions[i].tx.Amount) * Math.pow(10, -6),
-          ).toLocaleString('en-US'); //
+            Number(tx.Amount) * Math.pow(10, -6),
+          ).toLocaleString('en-US');
         }
-      } else if (history.result.transactions[i].tx.LimitAmount) {
-        if (typeof history.result.transactions[i].tx.LimitAmount === 'object') {
-          transaction.amount = Number(
-            history.result.transactions[i].tx.LimitAmount.value,
-          ).toLocaleString('en-US');
-          transaction.currency = xrpl.convertHexToString(
-            history.result.transactions[i].tx.LimitAmount.currency,
+      } else if (tx.LimitAmount) {
+        if (typeof tx.LimitAmount === 'object') {
+          transaction.amount = Number(tx.LimitAmount.value).toLocaleString(
+            'en-US',
           );
+          transaction.currency = getCurrencyString(tx.LimitAmount.currency);
         } else {
           transaction.amount = Number(
-            Number(history.result.transactions[i].tx.LimitAmount) *
-              Math.pow(10, -6),
-          ).toLocaleString('en-US'); //
+            Number(tx.LimitAmount) * Math.pow(10, -6),
+          ).toLocaleString('en-US');
         }
       }
 
       const formattedDate = moment
-        .unix(Number(history.result.transactions[i].tx.date) + 946684800)
+        .unix(Number(tx.date) + 946684800)
         .format('MMDDYYYY');
+
       let month = formattedDate.substring(0, 2);
       if (month.at(0) === '0') {
         month = month.at(1);
@@ -115,12 +149,14 @@ const getTransactionHistory = async (account, node) => {
 
     return formattedHistory;
   } catch (e) {
-    console.log(e.message);
+    console.log('Transaction History Error:', e.message);
     return {
       error: 'Error: Trouble Connecting To The Rippled Server.',
     };
   } finally {
-    client.disconnect();
+    if (client) {
+      client.disconnect();
+    }
   }
 };
 

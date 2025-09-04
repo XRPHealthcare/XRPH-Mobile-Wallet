@@ -44,6 +44,7 @@ const Alert = props => {
             {
               backgroundColor:
                 props?.type == 'error' ? '#ff0e0e' : colors.secondary,
+              top: props?.top ? props.top : 50,
             },
           ]}>
           <View style={styles.copyModalHeader}>
@@ -53,7 +54,9 @@ const Alert = props => {
               </Text>
             </View>
             <TouchableOpacity onPress={() => props.setIsOpen(false)}>
-              <Text style={styles.sendModalHeaderText}>X</Text>
+              <Text style={styles.sendModalHeaderText}>
+                {props.type == 'error' ? 'X' : '✓'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -78,18 +81,19 @@ const styling = colors =>
     },
     sendModalHeaderText: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'left',
     },
     sendModalHeaderTextName: {
       fontSize: 16,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'left',
-      marginTop: 4,
     },
     copyModalHeader: {
       width: '100%',

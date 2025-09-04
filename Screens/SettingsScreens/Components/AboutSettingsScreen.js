@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  Pressable,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
@@ -22,7 +23,10 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -39,7 +43,7 @@ const AboutSettingsScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   return (
     <GestureHandlerRootView>
@@ -47,65 +51,52 @@ const AboutSettingsScreen = ({navigation}) => {
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
+            <Pressable onPress={() => navigation.navigate('Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
+              )}
+            </Pressable>
+            <Text style={styles.headerHeading}>About</Text>
+            <Text style={{width: 20}}></Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
+
           <ScrollView style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Settings Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={styles.actionButtonText}>About</Text>
-            </View>
-            <View style={styles.hl}></View>
             <View style={styles.settingLong}>
-              <Text style={styles.settingTextLong}>
+              <Text style={styles.label}>
                 The XRP Healthcare Decentralized Mobile Wallet is a
                 non-custodial wallet backed by the XRP Ledger. This gives our
                 users complete control over their wallet - making sure every
                 transaction is completely safe, secure, and anonymous.
               </Text>
             </View>
-            <View style={styles.hl}></View>
-            <View style={styles.settingLong}>
-              <Text style={styles.settingTextLong}>
+            <View style={[styles.settingLong, {marginTop: 20}]}>
+              <Text style={styles.label}>
                 The first Pharma and Healthcare platform to be built on the XRP
                 Ledger. XRP Healthcare (XRPH) is an innovative, scalable
                 solutions company utilizing Web3 technology to revolutionize the
                 way people access and afford healthcare services globally.
               </Text>
             </View>
-            <View style={styles.hl}></View>
           </ScrollView>
-          <Navbar activeIcon="settings" navigation={navigation} />
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
     },
     backButton: {
       width: 50,
@@ -127,13 +118,15 @@ const styling = colors =>
     settingText: {
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     settingTextLong: {
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaLight',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanLight',
       marginTop: 5,
       marginBottom: 5,
     },
@@ -152,33 +145,85 @@ const styling = colors =>
       marginTop: 0,
     },
     header: {
-      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      alignItems: 'center',
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme === 'dark' ? '#F8F8F8' : '#636363',
+    },
+    value: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    settingCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#414141' : '#ededed',
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 14,
+      zIndex: 1000,
     },
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'right',
       marginTop: 5,
     },
     accountNameText: {
       fontSize: 16,
       color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginTop: 10,
       textAlign: 'right',
     },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
+    },
     settingsWrapper: {
       width: '100%',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      backgroundColor: colors.bg,
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      // backgroundColor: colors.bg_gray,
       borderRadius: 10,
     },
     settingsButtonContainer: {
@@ -204,8 +249,9 @@ const styling = colors =>
     actionButtonText: {
       color: colors.text,
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaLight' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'center',
     },
     backIcon: {

@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   Platform,
+  Pressable,
 } from 'react-native';
 import {light, dark} from '../../../assets/colors/colors';
 import Pin from './Pin';
@@ -21,16 +22,33 @@ import firestore from '@react-native-firebase/firestore';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
 import {trigger} from 'react-native-haptic-feedback';
 import PendingTouch from '../../../assets/img/pending-touch.svg';
+import {useGetPrices} from '../../../utils/wallet.api';
+import getAccountBalances from '../../HomeScreen/Handlers/get_account_balances';
+import {parseAccount} from '../../HomeScreen/Handlers/parse_account';
+import RNExitApp from 'react-native-exit-app';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 Feather.loadFont();
 
 const MAX_ATTEMPTS = 8;
 
 const EnterPinScreen = ({navigation}) => {
+  const getExchangePrices = useGetPrices();
   const rnBiometrics = new ReactNativeBiometrics();
-  const {theme, accounts, activeAccount, hepticOptions, isBiometricEnabled} =
-    useStore();
+  const {
+    theme,
+    accounts,
+    activeAccount,
+    hepticOptions,
+    isBiometricEnabled,
+    node,
+  } = useStore();
   const setAccounts = useStore(state => state.setAccounts);
   const setActiveAccount = useStore(state => state.setActiveAccount);
+  const setAccountBalances = useStore(state => state.setAccountBalances);
+  const setStakingBalances = useStore(state => state.setStakingBalances);
   const setIsBiometricEnabled = useStore(state => state.setIsBiometricEnabled);
   const [newPin, setNewPin] = React.useState('');
   const [numAttempts, setNumAttempts] = React.useState(0);
@@ -41,121 +59,11 @@ const EnterPinScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const onVerificationSuccess = () => {
     navigation.navigate('Home Screen');
     setNewPin('');
-  };
-
-  const getTotalBalances = async () => {
-    let updatedAccounts = [];
-
-    for (let accountIndex = 0; accountIndex < accounts.length; accountIndex++) {
-      let allRates = {
-        USD: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-        EUR: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-        GBP: {
-          XRPrate: 0,
-          XRPHrate: 0,
-        },
-      };
-
-      let allBalances = {
-        USD: '0',
-        EUR: '0',
-        GBP: '0',
-      };
-
-      const currencies = ['USD', 'EUR', 'GBP'];
-      const balances = accounts[accountIndex].balances;
-
-      if (balances.length == 0) {
-        updatedAccounts.push({
-          ...accounts[accountIndex],
-          totalBalances: allBalances,
-        });
-      } else {
-        for (let i = 0; i < currencies.length; i++) {
-          const res = await firestore()
-            .collection('exchange_rates')
-            .doc(currencies[i])
-            .get();
-          if (
-            res['_data'].XRPHrate === undefined ||
-            res['_data'].XRPrate === undefined
-          ) {
-            setError('Unfortunately we could not connect your account.');
-          } else {
-            const exchangeRates = res['_data'];
-            allRates[currencies[i]].XRPrate = exchangeRates.XRPrate;
-            allRates[currencies[i]].XRPHrate = exchangeRates.XRPHrate;
-            // XRPrate = exchangeRates.XRPrate;
-            // XRPHrate = exchangeRates.XRPHrate;
-          }
-          let sum = 0;
-
-          for (let j = 0; j < balances.length; j++) {
-            const {currency, value} = balances[j];
-
-            let amount = 0;
-            if (currency === 'XRP') {
-              amount = Number(value * allRates[currencies[i]].XRPrate);
-            } else if (currency === 'XRPH') {
-              amount = Number(value * allRates[currencies[i]].XRPHrate);
-            } else {
-              amount = 0;
-            }
-            sum += amount;
-          }
-
-          sum = sum.toFixed(2);
-          allBalances[currencies[i]] = String(sum.toLocaleString('en-US'));
-        }
-        // get data for XRP and XRPH
-
-        updatedAccounts.push({
-          ...accounts[accountIndex],
-          totalBalances: allBalances,
-        });
-      }
-    }
-    return updatedAccounts;
-  };
-
-  const getExchangeRates = async (exchangeFrom, exchangeIn) => {
-    let XRPrate = 0;
-    let XRPHrate = 0;
-
-    const res = await firestore()
-      .collection('exchange_rates')
-      .doc(exchangeIn)
-      .get();
-    console.log(res);
-    if (
-      res['_data'].XRPHrate === undefined ||
-      res['_data'].XRPrate === undefined
-    ) {
-      setError('Unfortunately we could not connect your account.');
-    } else {
-      const exchangeRates = res['_data'];
-      XRPrate = exchangeRates.XRPrate;
-      XRPHrate = exchangeRates.XRPHrate;
-    }
-
-    if (exchangeFrom === 'XRP') {
-      return XRPrate;
-    } else if (exchangeFrom === 'XRPH') {
-      return XRPHrate;
-    } else {
-      return 0;
-    }
   };
 
   const biometricPrompt = () => {
@@ -221,6 +129,21 @@ const EnterPinScreen = ({navigation}) => {
     }
   };
 
+  const getActiveAccountBalances = async account => {
+    const balances = await getAccountBalances(account, node);
+    AsyncStorage.setItem('accountBalances', JSON.stringify(balances));
+    setAccountBalances(balances);
+  };
+
+  const gestureEndListener = e => {
+    if (
+      e?.data?.action?.type === 'GO_BACK' ||
+      e?.data?.action?.type === 'POP'
+    ) {
+      RNExitApp.exitApp();
+    }
+  };
+
   React.useEffect(() => {
     setTimeout(() => {
       setErrorMessage('');
@@ -229,65 +152,87 @@ const EnterPinScreen = ({navigation}) => {
 
   React.useEffect(() => {
     checkIsBiometricEnabled();
+
+    AsyncStorage.getItem('stakingBalances').then(res => {
+      if (res) {
+        setStakingBalances(parseAccount(res));
+      }
+    });
+    AsyncStorage.getItem('activeAccount').then(res => {
+      if (res) {
+        setActiveAccount(parseAccount(res));
+        getActiveAccountBalances(parseAccount(res));
+      }
+    });
+
     const getBalances = async () => {
-      // let updatedAccounts = [];
-
-      // await Promise.all(accounts.map(async (account) => {
-      //     const contents = await getTotalBalances(account.balances);
-      //     console.log(contents);
-      // }));
-
-      getTotalBalances(accounts)
-        .then(updatedAccounts => {
-          console.log(updatedAccounts);
-          for (let i = 0; i < updatedAccounts.length; i++) {
-            if (
-              updatedAccounts[i].classicAddress === activeAccount.classicAddress
-            ) {
-              setActiveAccount(updatedAccounts[i]);
-              AsyncStorage.setItem(
-                'activeAccount',
-                JSON.stringify(updatedAccounts[i]),
-              ).then(() => {
-                console.log('active account set asynchronously');
-              });
-            }
-          }
-          setAccounts(updatedAccounts);
-          AsyncStorage.setItem(
-            'accounts',
-            JSON.stringify(updatedAccounts),
-          ).then(() => {
-            console.log('active account set asynchronously');
-          });
-        })
-        .catch(err => {
-          console.log('1: ', err.message);
-        });
+      // getTotalBalances(accounts)
+      //   .then(updatedAccounts => {
+      //     console.log(updatedAccounts);
+      //     for (let i = 0; i < updatedAccounts.length; i++) {
+      //       if (
+      //         updatedAccounts[i].classicAddress === activeAccount.classicAddress
+      //       ) {
+      //         setActiveAccount(updatedAccounts[i]);
+      //         AsyncStorage.setItem(
+      //           'activeAccount',
+      //           JSON.stringify(updatedAccounts[i]),
+      //         ).then(() => {
+      //           console.log('active account set asynchronously');
+      //         });
+      //       }
+      //     }
+      //     setAccounts(updatedAccounts);
+      //     AsyncStorage.setItem(
+      //       'accounts',
+      //       JSON.stringify(updatedAccounts),
+      //     ).then(() => {
+      //       console.log('active account set asynchronously');
+      //     });
+      //   })
+      //   .catch(err => {
+      //     console.log('1: ', err.message);
+      //   });
     };
 
     getBalances().catch(err => console.log(err.message));
+    const gestureHandler = navigation.addListener(
+      'beforeRemove',
+      gestureEndListener,
+    );
+    return gestureHandler;
   }, []);
 
   return (
     <View style={styles.bg}>
       <View style={styles.header}>
-        <Image
-          style={styles.headerImage}
-          source={
-            theme === 'light'
-              ? require('../../../assets/img/header_logo.png')
-              : require('../../../assets/img/header_logo_dark.png')
-          }
-        />
-        {numAttempts < MAX_ATTEMPTS ? (
-          <Text key="2" style={styles.directionText}>
-            Please enter your pin.
-          </Text>
-        ) : (
-          <></>
-        )}
+        <Text style={styles.headerHeading}>Verify Your Pin</Text>
       </View>
+      <Image
+        source={require('../../../assets/img/new-design/bg-gradient.png')}
+        style={styles.greenShadow}
+      />
+      <Image
+        style={styles.headerImage}
+        source={
+          theme === 'light'
+            ? require('../../../assets/img/header_logo.png')
+            : require('../../../assets/img/header_logo_dark.png')
+        }
+      />
+      {numAttempts < MAX_ATTEMPTS ? (
+        <View
+          style={{
+            width: '100%',
+            paddingHorizontal: 20,
+          }}>
+          <Text key="2" style={styles.directionText}>
+            Please enter your pin
+          </Text>
+        </View>
+      ) : (
+        <></>
+      )}
       <ScrollView contentContainerStyle={styles.loadingAnimationWrapper}>
         {numAttempts < MAX_ATTEMPTS ? (
           <Pin
@@ -308,15 +253,48 @@ const EnterPinScreen = ({navigation}) => {
         {errorMessage?.length > 0 && (
           <Text style={styles.errorMessage}>{errorMessage}</Text>
         )}
-        <Text style={styles.attemptsLeft}>
-          {MAX_ATTEMPTS - numAttempts} attempts remaining.
-        </Text>
+        {numAttempts > 0 && (
+          <Text style={styles.attemptsLeft}>
+            {MAX_ATTEMPTS - numAttempts} attempts remaining.
+          </Text>
+        )}
         {isBiometricEnabled ? (
-          <View style={{marginTop: 5}}>
-            <Text style={styles.attemptsLeft}>OR</Text>
+          <View
+            style={{marginTop: 48, marginLeft: 'auto', marginRight: 'auto'}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+              }}>
+              <View
+                style={{
+                  height: 1,
+                  width: '45%',
+                  backgroundColor: colors.text_gray,
+                }}
+              />
+              <Text
+                style={[
+                  styles.attemptsLeft,
+                  {fontSize: 14, textAlign: 'center'},
+                ]}>
+                OR
+              </Text>
+              <View
+                style={{
+                  height: 1,
+                  width: '45%',
+                  backgroundColor: colors.text_gray,
+                }}
+              />
+            </View>
             <TouchableOpacity
               style={{
-                marginTop: 20,
+                marginTop: 48,
+                marginLeft: 'auto',
+                marginRight: 'auto',
               }}
               onPress={biometricPrompt}>
               <PendingTouch height={75} width={75} />
@@ -330,98 +308,96 @@ const EnterPinScreen = ({navigation}) => {
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
+    },
+    wrapper: {
+      width: '100%',
+      // height: '100%',
       paddingHorizontal: 20,
+      paddingVertical: 24,
+      borderRadius: 10,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
     },
     header: {
-      marginTop: 40,
-    },
-    loadingAnimationWrapper: {
-      backgroundColor: colors.bg,
-      width: '100%',
-      // marginLeft: '5%',
-      marginBottom: 100,
-      marginTop: 30,
-      // elevation: 5,
-      borderRadius: 10,
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    headerImage: {
-      width: 350,
-      height: 65,
-      marginTop: 10,
-      marginLeft: 0,
-    },
-    addAccountAnimation: {
-      marginLeft: 0,
-    },
-    sendModalHeader: {
-      width: '100%',
-      paddingHorizontal: 10,
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
       flexDirection: 'row',
       justifyContent: 'center',
-      marginTop: 100,
+      alignItems: 'center',
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    loadingAnimationWrapper: {
+      paddingHorizontal: 20,
+      width: '100%',
+      // marginLeft: '5%',
+      marginBottom: 8,
+      marginTop: 16,
+    },
+    headerImage: {
+      width: 279,
+      height: 53,
+      marginTop: 24,
+      marginLeft: 0,
     },
     sendModalHeaderText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '',
-      color: colors.text,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: '',
+      color: colors.text_gray,
       textAlign: 'center',
       flex: 1,
       flexWrap: 'wrap',
-      marginTop: 0,
-    },
-    addAccountOkButton: {
-      width: 200,
-      height: 50,
-      alignItems: 'center',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      backgroundColor: colors.primary,
-      borderRadius: 20,
-    },
-    addAccountOkButtonText: {
-      textAlign: 'center',
-      fontSize: 20,
-      color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '',
-      marginRight: 20,
     },
     directionText: {
-      fontSize: 18,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
-      marginTop: 200,
-      textAlign: 'center',
+      fontSize: 14,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
+      marginTop: 48,
+      textAlign: 'start',
     },
     errorMessage: {
       // backgroundColor: colors.text,
-      color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      color: '#EF4444',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       paddingTop: 10,
       paddingBottom: 10,
     },
     attemptsLeft: {
-      fontSize: 18,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
-      marginTop: 10,
-      textAlign: 'center',
-    },
-    buttonWrapper: {
-      flexDirection: 'row',
+      fontSize: 12,
+      color: '#EF4444',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
+      textAlign: 'start',
     },
   });
 

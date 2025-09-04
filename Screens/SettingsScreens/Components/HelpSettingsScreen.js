@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
+  Pressable,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {light, dark} from '../../../assets/colors/colors';
@@ -21,8 +22,11 @@ import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
-import {openComposer} from 'react-native-email-link';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
+import { openInAppBrowser } from '../../../utils/functions/InAppBrowserService';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -39,71 +43,69 @@ const HelpSettingsScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   return (
     <GestureHandlerRootView>
-      <SafeAreaView style={{backgroundColor: colors.bg}}>
+      <SafeAreaView style={{backgroundColor: colors.bg_gray}}>
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
+            <Pressable onPress={() => navigation.navigate('Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
+              )}
+            </Pressable>
+            <Text style={styles.headerHeading}>Help & Support</Text>
+            <Text style={{width: 20}}></Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
+
           <ScrollView style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Settings Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={styles.actionButtonText}>Help & Support</Text>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Bug Report Screen')}>
-                <Text style={styles.settingText}>Report a Bug</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
+            <Text style={[styles.label, {marginBottom: 16}]}>Support</Text>
+            <Pressable
+              onPress={() => navigation.navigate('Bug Report Screen')}
+              style={[styles.settingCard]}>
+              <Text style={[styles.value]}>Report a Bug</Text>
+              <Feather name="chevron-right" size={20} color={colors.text} />
+            </Pressable>
+            {/* <View style={styles.setting}>
               <TouchableOpacity
                 onPress={() =>
-                  Linking.openURL('https://www.xrphealthcare.com/app-faqs.php')
+                  Linking.openURL('mailto:support@xrphealthcare.com')
                 }>
-                <Text style={[styles.settingText, styles.email]}>FAQs</Text>
+                <Text style={[styles.settingText]}>Contact Support</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.hl}></View>
+            <View style={styles.hl}></View> */}
+            <Pressable
+              onPress={() =>
+                // Linking.openURL('https://www.xrphealthcare.ai/app-faqs.php')
+                openInAppBrowser('https://www.xrphealthcare.ai/app-faqs.php',colors)
+              }
+              style={[styles.settingCard, {marginTop: 8}]}>
+              <Text style={[styles.value]}>FAQs</Text>
+              <Feather name="chevron-right" size={20} color={colors.text} />
+            </Pressable>
           </ScrollView>
-          <Navbar activeIcon="settings" navigation={navigation} />
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
     },
     backButton: {
       width: 50,
@@ -130,34 +132,85 @@ const styling = colors =>
       marginTop: 0,
     },
     header: {
-      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      alignItems: 'center',
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme === 'dark' ? '#F8F8F8' : '#636363',
+    },
+    value: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    settingCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#414141' : '#ededed',
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 14,
+      zIndex: 1000,
     },
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'right',
       marginTop: 5,
     },
     accountNameText: {
       fontSize: 16,
       color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       marginTop: 10,
       textAlign: 'right',
     },
     settingsWrapper: {
       width: '100%',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      backgroundColor: colors.bg,
-      borderRadius: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      // backgroundColor: colors.bg_gray,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
     },
     settingsButtonContainer: {
       // width: '107%',
@@ -182,8 +235,9 @@ const styling = colors =>
     actionButtonText: {
       color: colors.text,
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'center',
     },
     backIcon: {
@@ -215,8 +269,9 @@ const styling = colors =>
     settingText: {
       fontSize: 16,
       color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     email: {
       textDecorationLine: 'underline',

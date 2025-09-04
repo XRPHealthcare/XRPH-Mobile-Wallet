@@ -20,13 +20,16 @@ import {light, dark} from '../../../assets/colors/colors';
 import useStore from '../../../data/store';
 import checkConnectionStatus from '../Handlers/xrpl_connection_status';
 import RNExitApp from 'react-native-exit-app';
+import {switchRPC} from '../../HomeScreen/Handlers/switch_rpc';
 
 AntDesign.loadFont();
 Feather.loadFont();
 MaterialCommunityIcons.loadFont();
 
 const StartScreen = ({navigation}) => {
-  const {theme, accounts, node} = useStore();
+  const {theme, accounts, node, rpcUrls} = useStore();
+  const setNode = useStore(state => state.setNode);
+
   const [isConnected, setIsConnected] = React.useState(true);
 
   let colors = light;
@@ -36,29 +39,25 @@ const StartScreen = ({navigation}) => {
 
   const styles = styling(colors);
 
-  React.useEffect(() => {
-    checkConnectionStatus(node).then(res => {
+  const detectConnection = rpcNode => {
+    checkConnectionStatus(rpcNode).then(res => {
       if (res) {
         setIsConnected(true);
         console.log('connected');
       } else {
-        setIsConnected(false);
-        console.log('not connected');
-      }
-    });
-  }, []);
-
-  const checkConnection = () => {
-    checkConnectionStatus(node).then(res => {
-      if (res) {
-        setIsConnected(true);
-        console.log('connected');
-      } else {
+        // switchRPC(node, rpcUrls).then(res => {
+        //   setNode(res);
+        //   detectConnection(res);
+        // });
         setIsConnected(false);
         console.log('not connected');
       }
     });
   };
+
+  React.useEffect(() => {
+    detectConnection(node);
+  }, []);
 
   const gestureEndListener = () => {
     if (accounts.length === 0) {
@@ -80,13 +79,9 @@ const StartScreen = ({navigation}) => {
         {accounts.length > 0 && (
           <View style={styles.settingsButtonContainer}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('Home Screen')}>
-              <Feather
-                name={'chevron-left'}
-                size={35}
-                color={colors.text}
-                style={styles.backIcon}
-              />
+              onPress={() => navigation.navigate('Home Screen')}
+              style={{marginTop: 20}}>
+              <Feather name={'chevron-left'} size={35} color={colors.text} />
             </TouchableOpacity>
           </View>
         )}
@@ -138,7 +133,7 @@ const StartScreen = ({navigation}) => {
             </Text>
             <TouchableOpacity
               style={styles.buttonConnect}
-              onPress={checkConnection}>
+              onPress={() => detectConnection(node)}>
               <View style={styles.buttonWrapper}>
                 <Text style={styles.buttonConnectText}>Retry</Text>
               </View>
@@ -159,8 +154,9 @@ const styling = colors =>
       justifyContent: 'space-between',
       height: '100%',
       paddingHorizontal: 0,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     settingsButtonContainer: {
       position: 'absolute',
@@ -189,8 +185,9 @@ const styling = colors =>
       backgroundColor: colors.text_light,
       borderRadius: 10,
       elevation: 0,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     slideButtonUnderlayStyle: {
       backgroundColor: colors.text_light,
@@ -198,8 +195,9 @@ const styling = colors =>
     slideButtonTitleStyle: {
       fontSize: 20,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonConnect: {
       width: '100%',
@@ -226,14 +224,16 @@ const styling = colors =>
     buttonConnectText: {
       fontSize: 18,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonCreateText: {
       fontSize: 18,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonWrapper: {
       flexDirection: 'row',
@@ -248,7 +248,7 @@ const styling = colors =>
     errorMessageText: {
       backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: 'NexaBold',
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
       borderRadius: 20,
       padding: 10,

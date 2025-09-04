@@ -23,6 +23,7 @@ import moment from 'moment';
 import {useWithdrawStake} from '../../../utils/wallet.api';
 import Countdown from 'react-countdown';
 import GradientXRPH from '../../../components/GradientXRPH';
+import {useNetInfo} from '@react-native-community/netinfo';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -32,6 +33,7 @@ Feather.loadFont();
 Ionicons.loadFont();
 
 const StakeCard = props => {
+  const netInfo = useNetInfo();
   const [withdrawLoading, setWithdrawLoading] = React.useState(false);
   let {theme, activeAccount} = useStore();
   const userWithdraw = useWithdrawStake();
@@ -241,7 +243,12 @@ const StakeCard = props => {
                 ) : (
                   <TouchableOpacity
                     onPress={() => {
-                      withdrawStake(props?.stake?.id);
+                      if (netInfo.isConnected) {
+                        withdrawStake(props?.stake?.id);
+                      } else {
+                        props.setIsErrorAlert(true);
+                        props.setErrorMsg('No internet connection');
+                      }
                     }}>
                     <Text style={styles.stakeButtonText}>Claim Reward</Text>
                   </TouchableOpacity>
@@ -256,8 +263,13 @@ const StakeCard = props => {
                 <TouchableOpacity
                   // style={styles.unstakeButton}
                   onPress={() => {
-                    props.setUnStakeId(props?.stake?.id);
-                    props.toggleUnstake();
+                    if (netInfo.isConnected) {
+                      props.setUnStakeId(props?.stake?.id);
+                      props.toggleUnstake();
+                    } else {
+                      props.setIsErrorAlert(true);
+                      props.setErrorMsg('No internet connection');
+                    }
                   }}>
                   <Text style={styles.stakeButtonText}>Unstake</Text>
                 </TouchableOpacity>
@@ -280,12 +292,12 @@ const styling = colors =>
     },
     stakedlabel: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
+      fontWeight: '400',
       color: colors.dark_text,
     },
     gradientStaked: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '600',
+      fontWeight: '600',
     },
 
     stakeButton: {
@@ -296,7 +308,7 @@ const styling = colors =>
     },
     stakeButtonText: {
       fontSize: 18,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '500',
+      fontWeight: '500',
       color: '#fff',
       textAlign: 'center',
     },
@@ -308,7 +320,7 @@ const styling = colors =>
     },
     desc: {
       fontSize: 12,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
+      fontWeight: '400',
       marginTop: 22,
       marginBottom: 6,
       textAlign: 'center',
@@ -325,7 +337,7 @@ const styling = colors =>
     },
     unstakeButtonText: {
       fontSize: 18,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '500',
+      fontWeight: '500',
       color: colors.text,
       textAlign: 'center',
     },

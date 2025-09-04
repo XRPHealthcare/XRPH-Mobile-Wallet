@@ -11,6 +11,7 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  Pressable,
 } from 'react-native';
 import _ from 'lodash';
 import {GestureHandlerRootView, ScrollView} from 'react-native-gesture-handler';
@@ -26,10 +27,15 @@ import LinearGradient from 'react-native-linear-gradient';
 import UnstakeSheet from './UnstakeSheet';
 import Alert from '../../../components/Alert';
 import StakeCard from './StakeCard';
-import Navbar from '../../../components/Navbar';
 import ConfirmationModal from './ConfirmationModal';
 import {useGetUserStakes, useStake} from '../../../utils/wallet.api';
 import StakeInfo from './StakeInfo';
+import {useNetInfo} from '@react-native-community/netinfo';
+import MaintenanceAlert from '../../HomeScreen/Components/MaintenanceAlert';
+import {
+  ArrowBackDarkIcon,
+  ArrowBackLightIcon,
+} from '../../../assets/img/new-design';
 
 FontAwesome.loadFont();
 MaterialCommunityIcons.loadFont();
@@ -39,6 +45,7 @@ Feather.loadFont();
 Ionicons.loadFont();
 
 const StakeScreen = ({route, navigation}) => {
+  const netInfo = useNetInfo();
   const [unStakeId, setUnStakeId] = useState('');
   const [activeStake, setActiveStake] = useState(0);
   const [erorrMsg, setErrorMsg] = useState('');
@@ -58,7 +65,7 @@ const StakeScreen = ({route, navigation}) => {
   const useStakeNow = useStake();
 
   const {data: staked, isLoading: stakedLoading} = useGetUserStakes({
-    limit: 50,
+    limit: 1000,
     offset: 0,
     address: activeAccount?.classicAddress,
   });
@@ -76,40 +83,46 @@ const StakeScreen = ({route, navigation}) => {
 
   const stakeNow = async () => {
     setIsConfirmModal(false);
-    setStakeLoading(true);
-    let payload = {
-      amount: Number(stakeAmount),
-      address: activeAccount?.classicAddress,
-      secret: activeAccount?.seed,
-      stakeType: activeStake,
-    };
-    if (!payload?.address || !payload?.secret) {
-      setIsErrorAlert(true);
-      setErrorMsg('Please login again');
-      setStakeLoading(false);
-    } else if (payload?.amount > Number(availableXRPH)) {
-      setIsErrorAlert(true);
-      setErrorMsg('Staked amount cannot be greater than available balance!');
-      setStakeLoading(false);
-    } else if (payload?.amount < 50) {
-      setIsErrorAlert(true);
-      setErrorMsg('Minimum stake is 50 XRPH');
-      setStakeLoading(false);
-    } else {
-      try {
-        await useStakeNow.mutateAsync(payload).then(() => {
-          getAvailableXRPH();
-          setErrorMsg(stakeAmount + ' XRPH staked successfully');
-          setStakeAmount('');
-          setIsSuccessAlert(true);
-        });
-        setStakeLoading(false);
-      } catch (e) {
-        console.log('-------stake error-----', e);
+    if (netInfo.isConnected) {
+      setStakeLoading(true);
+      let payload = {
+        amount: Number(stakeAmount),
+        address: activeAccount?.classicAddress,
+        secret: activeAccount?.seed,
+        stakeType: activeStake,
+      };
+      if (!payload?.address || !payload?.secret) {
         setIsErrorAlert(true);
-        setErrorMsg(e.message || 'Something went wrong, please try again!');
+        setErrorMsg('Please login again');
         setStakeLoading(false);
+      } else if (payload?.amount > Number(availableXRPH)) {
+        setIsErrorAlert(true);
+        setErrorMsg('Staked amount cannot be greater than available balance!');
+        setStakeLoading(false);
+      } else if (payload?.amount < 50) {
+        setIsErrorAlert(true);
+        setErrorMsg('Minimum stake is 50 XRPH');
+        setStakeLoading(false);
+      } else {
+        try {
+          await useStakeNow.mutateAsync(payload).then(() => {
+            getAvailableXRPH();
+            setErrorMsg(stakeAmount + ' XRPH staked successfully');
+            setStakeAmount('');
+            setIsSuccessAlert(true);
+          });
+          setStakeLoading(false);
+        } catch (e) {
+          console.log('-------stake error-----', e);
+          setIsErrorAlert(true);
+          setErrorMsg(e.message || 'Something went wrong, please try again!');
+          setStakeLoading(false);
+        }
       }
+    } else {
+      setIsErrorAlert(true);
+      setErrorMsg('No internet connection');
+      setStakeLoading(false);
     }
   };
 
@@ -141,204 +154,33 @@ const StakeScreen = ({route, navigation}) => {
             <TouchableOpacity
               onPress={() => setInputFocused(false)}
               activeOpacity={1}>
-              <View style={[styles.flex, {marginTop: 16}]}>
-                <Image
-                  source={require('../../../assets/img/hero.png')}
-                  style={styles.logo}
-                />
-                <View>
-                  <Text style={styles.title}>Staking</Text>
-                  <Text
-                    style={[
-                      styles.user,
-                      {color: theme === 'dark' ? '#1DAC77' : '#AF45EE'},
-                    ]}>
-                    {activeAccount?.name}
-                  </Text>
-                </View>
+              <View
+                style={[
+                  styles.flex,
+                  {marginTop: 16, justifyContent: 'flex-start', gap: 26},
+                ]}>
+                <Pressable
+                  onPress={() => {
+                    navigation?.goBack();
+                  }}>
+                  {theme === 'dark' ? (
+                    <ArrowBackDarkIcon />
+                  ) : (
+                    <ArrowBackLightIcon />
+                  )}
+                </Pressable>
+                <Text style={styles.title}>Staking Info</Text>
               </View>
-              <Text style={styles.heading}>Stake XRPH - Earn XRPH</Text>
-              <StakeInfo />
-              <LinearGradient
-                colors={
-                  isInputFocued
-                    ? ['#37C3A6', '#AF45EE']
-                    : [colors.bg, colors.bg]
-                }
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 0}}
-                style={styles.linearGradient}>
-                <View
-                  style={[
-                    styles.inputWrapper,
-                    {
-                      backgroundColor:
-                        theme === 'light' && !isInputFocued
-                          ? colors.light_gray_bg
-                          : colors.dark_bg,
-                    },
-                  ]}>
-                  <Text style={styles.inputLabel}>Amount to Stake</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="0"
-                      placeholderTextColor={colors.dark_gray}
-                      value={stakeAmount}
-                      onChangeText={e => setStakeAmount(e)}
-                      keyboardType={
-                        Platform.OS === 'ios' ? 'number-pad' : 'decimal-pad'
-                      }
-                      onFocus={() => {
-                        setIsKeyboardVisible(true);
-                        setInputFocused(true);
-                      }}
-                      onBlur={() => {
-                        setIsKeyboardVisible(false);
-                        // setInputFocused(false);
-                      }}
-                      returnKeyType={'done'}
-                    />
-                    <LinearGradient
-                      colors={
-                        isInputFocued
-                          ? ['#37C3A6', '#AF45EE']
-                          : theme === 'dark'
-                          ? ['#222', '#222']
-                          : ['#CFCFCF', '#CFCFCF']
-                      }
-                      start={{x: 0, y: 0}}
-                      end={{x: 1, y: 0}}
-                      style={styles.max}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setInputFocused(true);
-                          setStakeAmount(availableXRPH);
-                        }}>
-                        <Text style={styles.maxText}>MAX</Text>
-                      </TouchableOpacity>
-                    </LinearGradient>
-                  </View>
-                </View>
-              </LinearGradient>
-              <TouchableOpacity onPress={() => setActiveStake(0)}>
-                <LinearGradient
-                  colors={
-                    activeStake == 0
-                      ? ['#37C3A6', '#AF45EE']
-                      : [colors.light_gray_bg, colors.light_gray_bg]
-                  }
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={styles.linearGradient}>
-                  <View style={styles.stakeCard}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: 20,
-                        width: 20,
-                        padding: 10,
-                        borderColor: activeStake == 0 ? '#A254E8' : '#E0E0E0',
-                        borderWidth: 1,
-                        borderStyle: 'solid',
-                        borderRadius: 50,
-                      }}>
-                      <View
-                        style={{
-                          height: 15,
-                          width: 15,
-                          backgroundColor:
-                            activeStake == 0 ? '#A254E8' : '#E0E0E0',
-                          borderRadius: 50,
-                        }}></View>
-                    </View>
-                    <Text
-                      style={
-                        activeStake == 0
-                          ? styles.activeDuration
-                          : styles.duration
-                      }>
-                      6 Months
-                    </Text>
-                    <View style={styles.rewardFlex}>
-                      <Text style={styles.rewardText}>Fixed APR 20%</Text>
-                      <Text style={styles.rewardText}>Penalty Rate 10%</Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveStake(1)}>
-                <LinearGradient
-                  colors={
-                    activeStake == 1
-                      ? ['#37C3A6', '#AF45EE']
-                      : [colors.light_gray_bg, colors.light_gray_bg]
-                  }
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={styles.linearGradient}>
-                  <View style={styles.stakeCard}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: 20,
-                        width: 20,
-                        padding: 10,
-                        borderColor: activeStake == 1 ? '#A254E8' : '#E0E0E0',
-                        borderWidth: 1,
-                        borderStyle: 'solid',
-                        borderRadius: 50,
-                      }}>
-                      <View
-                        style={{
-                          height: 15,
-                          width: 15,
-                          backgroundColor:
-                            activeStake == 1 ? '#A254E8' : '#E0E0E0',
-                          borderRadius: 50,
-                        }}></View>
-                    </View>
-                    <Text
-                      style={
-                        activeStake == 1
-                          ? styles.activeDuration
-                          : styles.duration
-                      }>
-                      12 Months
-                    </Text>
-                    <View style={styles.rewardFlex}>
-                      <Text style={styles.rewardText}>Fixed APR 25%</Text>
-                      <Text style={styles.rewardText}>Penalty Rate 12.5%</Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-              <View style={styles.availableAmount}>
-                <Text style={styles.inputLabel}>Available Amount</Text>
-                <Text style={styles.totalStaked}>
-                  {Number(availableXRPH)?.toFixed(2)} XRPH
+              <View style={styles.alert}>
+                <Text style={styles.alertText}>
+                  Due to the scarcity of XRPH tokens, staking is no longer
+                  available. Existing stakers may continue until their current
+                  period ends.
                 </Text>
               </View>
-              <LinearGradient
-                colors={['#37C3A6', '#AF45EE']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 0}}
-                style={styles.stakeButton}>
-                {stakeLoading ? (
-                  <ActivityIndicator color="#fff" size={25} />
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setIsConfirmModal(true);
-                    }}>
-                    <Text style={styles.stakeButtonText}>Stake Now</Text>
-                  </TouchableOpacity>
-                )}
-              </LinearGradient>
+              <Text style={[styles.heading]}>Stake XRPH - Earn XRPH</Text>
+              <StakeInfo />
+
               {stakedLoading && !staked?.length ? (
                 <View style={{marginTop: 20}}>
                   <ActivityIndicator size={30} />
@@ -376,9 +218,6 @@ const StakeScreen = ({route, navigation}) => {
             setIsSuccessAlert={setIsSuccessAlert}
             setErrorMsg={setErrorMsg}
           />
-          {!unStakeOpen && !isKeyboardVisible && (
-            <Navbar activeIcon="stake" navigation={navigation} />
-          )}
         </View>
         <Alert
           isOpen={isErrorAlert ? isErrorAlert : isSuccessAlert}
@@ -409,19 +248,18 @@ const styling = colors =>
       width: 48,
     },
     title: {
-      fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '600',
+      fontSize: 18,
+      fontWeight: '700',
       color: colors.dark_text,
-      textAlign: 'right',
     },
     user: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '400',
+      fontWeight: '400',
       textAlign: 'right',
     },
     heading: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '700',
+      fontWeight: '700',
       color: colors.dark_text,
       marginTop: 32,
     },
@@ -434,7 +272,7 @@ const styling = colors =>
 
     totalStaked: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '600',
+      fontWeight: '600',
       color: colors.dark_gray,
       textAlign: 'right',
     },
@@ -446,7 +284,7 @@ const styling = colors =>
     },
     inputLabel: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
+      fontWeight: '500',
       color: colors.dark_text,
     },
     inputContainer: {
@@ -456,7 +294,7 @@ const styling = colors =>
     },
     input: {
       fontSize: 14,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
+      fontWeight: '400',
       color: colors.dark_gray,
       padding: 0,
       width: '100%',
@@ -471,7 +309,7 @@ const styling = colors =>
     },
     maxText: {
       fontSize: 14,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
+      fontWeight: '500',
       color: '#fff',
     },
 
@@ -486,7 +324,7 @@ const styling = colors =>
     },
     duration: {
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
+      fontWeight: '500',
       color: colors.dark_gray,
     },
     rewardFlex: {
@@ -497,7 +335,7 @@ const styling = colors =>
     },
     rewardText: {
       fontSize: 14,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '400',
+      fontWeight: '400',
       color: colors.dark_gray,
     },
     linearGradient: {
@@ -508,7 +346,7 @@ const styling = colors =>
     activeDuration: {
       marginTop: 6,
       fontSize: 16,
-      fontWeight: Platform.OS == 'ios' ? 'normal' : '500',
+      fontWeight: '500',
       color: colors.dark_text,
     },
     availableAmount: {
@@ -529,9 +367,23 @@ const styling = colors =>
     },
     stakeButtonText: {
       fontSize: 18,
-      fontWeight: Platform.OS == 'ios' ? 'bold' : '500',
+      fontWeight: '500',
       color: '#fff',
       textAlign: 'center',
+    },
+    alert: {
+      backgroundColor: '#ff0e0e',
+      padding: 10,
+      elevation: 10,
+      borderRadius: 10,
+      marginTop: 20,
+    },
+    alertText: {
+      fontSize: 14,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      color: '#fff',
     },
   });
 

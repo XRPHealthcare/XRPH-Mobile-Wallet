@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Platform,
+  Pressable,
 } from 'react-native';
 import _ from 'lodash';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
@@ -17,13 +19,15 @@ import AntDesign from 'react-native-vector-icons/AntDesign';
 import Feather from 'react-native-vector-icons/Feather';
 import {light, dark} from '../../../assets/colors/padlockColors';
 import useStore from '../../../data/store';
-import AddAccountAnimation from '../../LoadingScreens/Components/AddAccountAnimation';
 import PadlockInputRow from './PadlockInputRow';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import firestore from '@react-native-firebase/firestore';
 import getWalletFromEntropy from '../Handlers/get_wallet_from_entropy';
 import {trigger} from 'react-native-haptic-feedback';
 import {useChangePassword} from '../../../utils/auth.api';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 
 AntDesign.loadFont();
 Feather.loadFont();
@@ -52,9 +56,7 @@ const ChangePasswordScreen = ({navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
-
-  const [bg, setBg] = React.useState(colors.text_light);
+  const styles = styling(colors, theme);
 
   const [padlockInput, setPadlockInput] = React.useState({
     A: ['_', '_', '_', '_', '_', '_'],
@@ -88,6 +90,31 @@ const ChangePasswordScreen = ({navigation}) => {
       setPwErrorMessage(
         'Error: Account password must be at least 8 characters long and include at least 1 uppercase character, 1 lowercase character, 1 number, and 1 special character (from the set @, $, !, %, *, ?, &).',
       );
+      return false;
+    }
+  };
+
+  const checkIsButtonDisabled = () => {
+    const entropyString =
+      padlockInput['A'].join('') +
+      ' ' +
+      padlockInput['B'].join('') +
+      ' ' +
+      padlockInput['C'].join('') +
+      ' ' +
+      padlockInput['D'].join('') +
+      ' ' +
+      padlockInput['E'].join('') +
+      ' ' +
+      padlockInput['F'].join('') +
+      ' ' +
+      padlockInput['G'].join('') +
+      ' ' +
+      padlockInput['H'].join('');
+    console.log(entropyString);
+    if (entropyString?.includes('_')) {
+      return true;
+    } else {
       return false;
     }
   };
@@ -201,23 +228,12 @@ const ChangePasswordScreen = ({navigation}) => {
     <GestureHandlerRootView>
       <SafeAreaView style={{backgroundColor: colors.bg}}>
         <StatusBar />
-
-        <ScrollView
-          automaticallyAdjustKeyboardInsets={true}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            minHeight: '100%',
-          }}>
-          <View style={styles.bg}>
-            <View>
+        {!changePwModalOpen && (
+          <View style={[styles.bg]}>
+            <View style={[styles.column, {gap: 10}]}>
               <TouchableOpacity
                 onPress={() => {
                   goBack();
-                }}
-                style={{
-                  marginTop: 10,
-                  marginLeft: -10,
                 }}>
                 <Feather
                   name={'chevron-left'}
@@ -234,26 +250,33 @@ const ChangePasswordScreen = ({navigation}) => {
                     : require('../../../assets/img/header_logo_dark.png')
                 }
               />
+              <View style={styles.directionsContainer}>
+                <Text style={styles.directionText}>
+                  Enter your padlock combination in order to reset your
+                  password.
+                </Text>
+                {padlockErrorMessage.length > 0 && (
+                  <Text style={styles.errorMessage}>{padlockErrorMessage}</Text>
+                )}
+              </View>
             </View>
-            <View style={styles.directionsContainer}>
-              <Text style={styles.directionText}>
-                Enter your padlock combination in order to reset your password.
-              </Text>
-              {padlockErrorMessage.length > 0 && (
-                <Text style={styles.errorMessage}>{padlockErrorMessage}</Text>
-              )}
-            </View>
-
-            <View style={styles.padlock}>
-              <PadlockInputRow letter={'A'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'B'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'C'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'D'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'E'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'F'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'G'} updatePadlock={updatePadlock} />
-              <PadlockInputRow letter={'H'} updatePadlock={updatePadlock} />
-              <View style={styles.padlockBottom} />
+            <View style={[styles.column, {gap: 10, alignItems: 'center'}]}>
+              <ScrollView
+                automaticallyAdjustKeyboardInsets={true}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}>
+                <View style={styles.padlock}>
+                  <PadlockInputRow letter={'A'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'B'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'C'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'D'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'E'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'F'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'G'} updatePadlock={updatePadlock} />
+                  <PadlockInputRow letter={'H'} updatePadlock={updatePadlock} />
+                  <View style={styles.padlockBottom} />
+                </View>
+              </ScrollView>
             </View>
             <View style={styles.slideButtonContainer}>
               {
@@ -263,7 +286,9 @@ const ChangePasswordScreen = ({navigation}) => {
                 disabled={padlockErrorMessage.length > 0 ? true : false}
                 onPress={checkPadlock}
                 style={{
-                  backgroundColor: bg,
+                  backgroundColor: checkIsButtonDisabled()
+                    ? colors.text_light
+                    : colors.secondary,
                   width: '100%',
                   alignItems: 'center',
                   flexDirection: 'column',
@@ -271,7 +296,6 @@ const ChangePasswordScreen = ({navigation}) => {
                   borderRadius: 10,
                   paddingVertical: 18,
                   paddingHorizontal: 10,
-                  marginBottom: 10,
                 }}>
                 <View style={styles.buttonWrapper}>
                   <Text style={styles.buttonCreateText}>Continue</Text>
@@ -285,66 +309,63 @@ const ChangePasswordScreen = ({navigation}) => {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+        )}
+
         {changePwModalOpen && (
-          <View style={styles.bg}>
+          <View style={styles.modalBg}>
             <Modal visible={changePwModalOpen} transparent={true}>
               {!loading ? (
                 <View style={styles.addAccountModalWrapper}>
-                  <View style={styles.sendModalHeader}>
-                    <View style={styles.sendModalHeaderSpacer}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          setChangePwModalOpen(false);
-                        }}
-                        style={{marginLeft: -5}}>
-                        <Feather
-                          name={'chevron-left'}
-                          size={35}
-                          color={colors.text}
-                          style={styles.backIcon}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.sendModalHeaderTextCreate}>
-                      Change Your Password
-                    </Text>
-                    <View style={styles.sendModalHeaderSpacer}></View>
+                  <View style={styles.header}>
+                    <Pressable onPress={() => setChangePwModalOpen(false)}>
+                      {theme === 'dark' ? (
+                        <ArrowSqrLeftWhiteIcon />
+                      ) : (
+                        <ArrowSqrLeftBlackIcon />
+                      )}
+                    </Pressable>
+                    <Text style={styles.headerHeading}>Change Password</Text>
+                    <Text style={{width: 20}}></Text>
                   </View>
+                  <Image
+                    source={require('../../../assets/img/new-design/bg-gradient.png')}
+                    style={styles.greenShadow}
+                  />
                   <View style={styles.addAccountModalActionsWrapper}>
-                    <Text style={styles.addAccountModalDirections}>
-                      Set a new password for your account.
-                    </Text>
-                    <View style={styles.pw}>
-                      <TextInput
-                        style={styles.accountNameInputPw}
-                        onChangeText={setAccountPassword}
-                        value={accountPassword}
-                        placeholder="Password"
-                        placeholderTextColor={colors.text_dark}
-                        secureTextEntry={!enterPwVisibility}
-                      />
-                      <TouchableOpacity
-                        style={styles.eyeButton}
-                        onPress={() =>
-                          setEnterPwVisibility(!enterPwVisibility)
-                        }>
-                        <View style={styles.buttonWrapper}>
-                          <Feather
-                            name={enterPwVisibility ? 'eye' : 'eye-off'}
-                            size={25}
-                            color={colors.text}
-                            style={styles.eyeIcon}
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-
-                    {pwErrorMessage.length > 0 && (
-                      <Text style={styles.errorMessageText}>
-                        {pwErrorMessage}
+                    <View>
+                      <Text style={styles.addAccountModalDirections}>
+                        Set a new password for your account.
                       </Text>
-                    )}
+                      <View style={styles.pw}>
+                        <TextInput
+                          style={styles.accountNameInputPw}
+                          onChangeText={setAccountPassword}
+                          value={accountPassword}
+                          placeholder="Password"
+                          placeholderTextColor={colors.text_dark}
+                          secureTextEntry={!enterPwVisibility}
+                        />
+                        <TouchableOpacity
+                          style={styles.eyeButton}
+                          onPress={() =>
+                            setEnterPwVisibility(!enterPwVisibility)
+                          }>
+                          <View style={styles.buttonWrapper}>
+                            <Feather
+                              name={enterPwVisibility ? 'eye' : 'eye-off'}
+                              size={24}
+                              color={colors.text}
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+
+                      {pwErrorMessage.length > 0 && (
+                        <Text style={styles.errorMessageText}>
+                          {pwErrorMessage}
+                        </Text>
+                      )}
+                    </View>
                     <View style={styles.addAccountActionButtons}>
                       <TouchableOpacity
                         style={styles.addAccountOkButton}
@@ -355,9 +376,8 @@ const ChangePasswordScreen = ({navigation}) => {
                           </Text>
                           <Feather
                             name={'arrow-right'}
-                            size={25}
+                            size={24}
                             color={colors.bg}
-                            style={styles.continueIcon}
                           />
                         </View>
                       </TouchableOpacity>
@@ -371,19 +391,31 @@ const ChangePasswordScreen = ({navigation}) => {
                             <Text style={styles.addAccountModalDirectionsCenter}>Taking you back...</Text>
                         </View> */}
                   <View style={styles.header}>
-                    <Text style={styles.headerText}>
-                      Password Successfully Changed
+                    <Text
+                      style={[
+                        styles.headerHeading,
+                        {
+                          fontSize: 18,
+                          marginLeft: 'auto',
+                          marginRight: 'auto',
+                        },
+                      ]}>
+                      Password Changed
                     </Text>
-                    <View style={styles.circle}>
-                      <Feather
-                        name={'check'}
-                        size={75}
-                        color={colors.bg}
-                        style={styles.checkIcon}
-                      />
-                    </View>
-                    <Text style={styles.headerText}>Taking you back...</Text>
                   </View>
+                  <Image
+                    source={require('../../../assets/img/new-design/bg-gradient.png')}
+                    style={styles.greenShadow}
+                  />
+                  <View style={styles.circle}>
+                    <Feather
+                      name={'check'}
+                      size={75}
+                      color={colors.bg}
+                      style={styles.checkIcon}
+                    />
+                  </View>
+                  <Text style={styles.headerText}>Taking you back...</Text>
                 </View>
               )}
             </Modal>
@@ -399,43 +431,70 @@ const ChangePasswordScreen = ({navigation}) => {
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
       backgroundColor: colors.bg,
-      alignItems: 'center',
       flexDirection: 'column',
       justifyContent: 'space-between',
       height: '100%',
       paddingHorizontal: 10,
+      paddingVertical: 10,
+      gap: 10,
+    },
+    modalBg: {
+      backgroundColor: colors.bg_gray,
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      height: '100%',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
     },
     headerImage: {
       width: 350,
       height: 65,
-      marginTop: 10,
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     directionsContainer: {
-      marginTop: 20,
       width: '100%',
-      flex: 1,
       paddingHorizontal: 10,
-    },
-    backButton: {
-      width: 120,
-      height: 50,
-      alignItems: 'center',
       flexDirection: 'column',
-      justifyContent: 'center',
-      backgroundColor: colors.text_light,
-      borderRadius: 20,
+      gap: 10,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
+      marginLeft: -150,
     },
     header: {
-      flexDirection: 'column',
-      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      width: '95%',
-      marginTop: 50,
-      marginBottom: 50,
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
     },
     checkIcon: {
       marginTop: 5,
@@ -444,44 +503,32 @@ const styling = colors =>
       width: 100,
       height: 100,
       borderRadius: 50,
+      marginTop: 150,
       backgroundColor: colors.secondary,
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       alignSelf: 'center',
       marginTop: 30,
       marginBottom: 30,
       width: '100%',
       textAlign: 'center',
     },
-    buttontextDark: {
-      fontSize: 20,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 5,
-      marginTop: 5,
-    },
-    welcomeText: {
-      fontSize: 42,
-      color: colors.text,
-      marginBottom: -10,
-    },
     directionText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
       marginTop: 5,
-    },
-    note: {
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
     },
     padlockBottom: {
       height: 6,
@@ -489,69 +536,41 @@ const styling = colors =>
     padlock: {
       backgroundColor: colors.text_light,
       borderRadius: 10,
-      width: '95%',
+      width: '97%',
       alignItems: 'center',
       justifyContent: 'space-evenly',
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
     slideButtonContainer: {
+      // position: 'absolute',
+      // bottom: 0,
+      // marginBottom: 20,
       alignSelf: 'center',
       width: '100%',
-      paddingHorizontal: 10,
-      paddingBottom: 10,
+      paddingHorizontal: 13,
       flexDirection: 'row',
-      marginTop: 22,
-    },
-    slideButtonThumbStyle: {
-      borderRadius: 10,
-      backgroundColor: colors.bg,
-      width: 80,
-      elevation: 0,
-    },
-    slideButtonContainerStyle: {
-      backgroundColor: colors.text_light,
-      borderRadius: 20,
-      elevation: 0,
-    },
-    slideButtonUnderlayStyle: {
-      backgroundColor: colors.secondary,
-      borderRadius: 10,
-    },
-    slideButtonTitleStyle: {
-      marginLeft: 20,
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.bg,
-    },
-    inputLabelCharacter: {
-      fontFamily: 'Helvetica',
     },
     addAccountModalWrapper: {
-      backgroundColor: colors.bg,
-      width: '90%',
-      height: 330,
-      marginLeft: '5%',
-      marginBottom: 100,
-      marginTop: 40,
-      elevation: 5,
-      borderRadius: 10,
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      backgroundColor: colors.bg_gray,
+      width: '100%',
+      height: '100%',
     },
     addAccountModalActionsWrapper: {
-      paddingHorizontal: 10,
+      paddingHorizontal: 20,
       width: '100%',
-      // justifyContent: 'space-evenly',
       flexDirection: 'column',
-      alignItems: 'center',
+      justifyContent: 'space-between',
+      flex: 1,
+      marginTop: 24,
     },
     addAccountModalDirections: {
-      textAlign: 'right',
-      fontSize: 16,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      // marginBottom: 20
+      textAlign: 'start',
+      fontSize: 14,
+      color: theme === 'dark' ? '#f8f8f8' : '#636363',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     addAccountModalDirectionsCenter: {
       textAlign: 'center',
@@ -560,8 +579,9 @@ const styling = colors =>
       color: colors.text_dark,
       marginTop: 10,
       marginBottom: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       // marginBottom: 20
     },
     addAccountActionButtons: {
@@ -573,117 +593,41 @@ const styling = colors =>
       width: '100%',
     },
     addAccountOkButton: {
-      width: 200,
-      height: 50,
+      width: '100%',
+      height: 44,
       alignItems: 'center',
-      flexDirection: 'column',
+      flexDirection: 'row',
       justifyContent: 'center',
       backgroundColor: colors.primary,
-      borderRadius: 20,
+      borderRadius: 8,
       marginBottom: 10,
     },
     addAccountOkButtonText: {
       textAlign: 'center',
-      fontSize: 20,
-      color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginRight: 20,
-      marginTop: 4,
-    },
-    sendModalHeader: {
-      width: '100%',
-      paddingHorizontal: 10,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 40,
-      marginBottom: 30,
-    },
-    sendModalHeaderSpacer: {
-      width: 60,
-    },
-    sendModalHeaderText: {
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.text,
-      textAlign: 'center',
-    },
-    sendModalHeaderTextCreate: {
-      fontSize: 22,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.text,
-      textAlign: 'right',
-      paddingRight: 10,
-    },
-    accountNameInput: {
-      height: 40,
-      width: '100%',
-      paddingHorizontal: 10,
-      margin: 10,
-      backgroundColor: colors.text_light,
-      borderColor: colors.primary,
-      padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.text,
-      borderRadius: 10,
-      paddingTop: 14,
-    },
-    addAccountModalDirections: {
-      width: '100%',
-      textAlign: 'left',
       fontSize: 16,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginBottom: 5,
-      marginTop: 20,
-    },
-    buttonWrapper: {
-      flexDirection: 'row',
-    },
-    buttonConnect: {
-      width: '48%',
-      marginRight: '4%',
-      height: 80,
-      alignItems: 'center',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      backgroundColor: colors.text_light,
-      borderRadius: 20,
-      marginBottom: 10,
-    },
-    buttonCreate: {},
-    buttonConnectText: {
-      fontSize: 20,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      color: colors.bg,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      marginRight: 8,
     },
     buttonCreateText: {
       fontSize: 20,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     buttonWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
     },
-    continueIcon: {
-      marginLeft: 10,
-    },
-    continueIconLeft: {
-      marginRight: 10,
-    },
     errorMessage: {
       // backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       paddingTop: 10,
       paddingBottom: 10,
@@ -691,43 +635,42 @@ const styling = colors =>
     errorMessageText: {
       backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       padding: 10,
       marginBottom: 10,
       width: '100%',
     },
     accountNameInputPw: {
-      height: 40,
-      width: '85%',
-      marginTop: 10,
-      marginBottom: 10,
-      paddingHorizontal: 10,
-      backgroundColor: colors.text_light,
-      borderColor: colors.primary,
-      padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      height: 54,
+      width: '100%',
+      paddingLeft: 14,
+      paddingRight: 32,
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      borderColor: theme === 'dark' ? '#414141' : '#EDEDED',
+      borderWidth: 1,
+      paddingVertical: 15,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
-      borderRadius: 10,
-      paddingTop: 14,
+      borderRadius: 8,
     },
     eyeButton: {
-      backgroundColor: colors.text_light,
-      height: 40,
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      height: 54,
+      width: 54,
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: 10,
     },
     pw: {
       width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    eyeIcon: {
-      paddingHorizontal: 5,
+      position: 'relative',
+      marginTop: 16,
     },
   });
 

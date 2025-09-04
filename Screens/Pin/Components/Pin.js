@@ -28,19 +28,19 @@ const Pin = props => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   React.useEffect(() => {
-    setTimeout(() => ref?.current.focus(), 100);
+    setTimeout(() => ref?.current?.focus(), 100);
   });
 
   React.useEffect(() => {
-    setTimeout(() => ref?.current.focus(), 100);
+    setTimeout(() => ref?.current?.focus(), 100);
   }, []);
 
   const handleOnPress = () => {
     setContainerIsFocused(true);
-    setTimeout(() => ref?.current.focus(), 100);
+    setTimeout(() => ref?.current?.focus(), 100);
   };
 
   const handleOnBlur = () => {
@@ -92,7 +92,7 @@ const Pin = props => {
           {idx < props.pin.length && (
             <Text style={styles.inputTextCircle}>●</Text>
           )}
-          {idx >= props.pin.length && <Text style={styles.inputText}></Text>}
+          {idx >= props.pin.length && <Text style={styles.inputText}>-</Text>}
         </View>
       </View>
     );
@@ -125,7 +125,7 @@ const Pin = props => {
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     container: {
       // flex: 1,
@@ -139,14 +139,16 @@ const styling = colors =>
       opacity: 0,
     },
     inputsContainer: {
-      width: '60%',
+      width: '100%',
       flexDirection: 'row',
+      gap: 4,
       justifyContent: 'space-between',
     },
     inputsContainerTransparent: {
       marginTop: -50,
       width: 300,
       height: 50,
+      gap: 2,
       flexDirection: 'row',
       justifyContent: 'space-between',
       backgroundColor: 'transparent',
@@ -155,13 +157,12 @@ const styling = colors =>
       color: 'transparent',
     },
     inputContainer: {
-      borderColor: colors.text_light,
-      borderWidth: 2,
       borderRadius: 4,
-      padding: 5,
-      margin: 2,
-      width: 36,
-      height: 50,
+      borderWidth: 1,
+      borderColor: colors.border_gray,
+      backgroundColor: colors.bg_otp_input,
+      width: 42,
+      height: 42,
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
@@ -170,16 +171,16 @@ const styling = colors =>
       borderColor: colors.primary,
     },
     inputText: {
-      fontSize: 24,
-      color: colors.primary,
-      fontFamily: 'NexaBold',
+      fontSize: 14,
+      color: colors.text,
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
       marginTop: 6,
     },
     inputTextCircle: {
-      fontSize: 24,
+      fontSize: 14,
       color: colors.primary,
-      fontFamily: 'NexaBold',
+      fontFamily: 'LeagueSpartanMedium',
       fontWeight: 'bold',
     },
   });

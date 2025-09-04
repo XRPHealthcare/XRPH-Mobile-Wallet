@@ -10,6 +10,8 @@ import {
   Text,
   TouchableOpacity,
   Platform,
+  Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {light, dark} from '../../../assets/colors/colors';
 import Pin from './Pin';
@@ -17,8 +19,13 @@ import useStore from '../../../data/store';
 import Feather from 'react-native-vector-icons/Feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBiometrics, {BiometryTypes} from 'react-native-biometrics';
-import LinearGradient from 'react-native-linear-gradient';
 import AntDesign from 'react-native-vector-icons/AntDesign';
+import RNExitApp from 'react-native-exit-app';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+} from '../../../assets/img/new-design';
 
 Feather.loadFont();
 AntDesign.loadFont();
@@ -40,7 +47,7 @@ const SetPinScreen = ({route, navigation}) => {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const confirmPin = () => {
     if (newPin.length !== 6) {
@@ -105,6 +112,15 @@ const SetPinScreen = ({route, navigation}) => {
     }
   };
 
+  const gestureEndListener = e => {
+    if (
+      e?.data?.action?.type === 'GO_BACK' ||
+      e?.data?.action?.type === 'POP'
+    ) {
+      RNExitApp.exitApp();
+    }
+  };
+
   useEffect(() => {
     setTimeout(() => {
       setErrorMessage('');
@@ -113,153 +129,210 @@ const SetPinScreen = ({route, navigation}) => {
 
   useEffect(() => {
     checkIsBiometricEnabled();
+    const gestureHandler = navigation.addListener(
+      'beforeRemove',
+      gestureEndListener,
+    );
+    return gestureHandler;
   }, []);
 
   return (
-    <View style={styles.bg}>
-      <View style={styles.header}>
-        {isPinSet ? (
-          <View>
-            <TouchableOpacity
-              onPress={() => {
-                toggleIsPinSet(false);
-              }}>
-              <Feather
-                name={'chevron-left'}
-                size={35}
-                color={colors.text}
-                style={styles.backIcon}
-              />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          params?.backEnabled && (
-            <View>
-              <TouchableOpacity
+    <GestureHandlerRootView>
+      <SafeAreaView style={colors.bg}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.bg}>
+            <View style={styles.header}>
+              <Pressable
                 onPress={() => {
-                  navigation?.goBack();
+                  if (isPinSet) {
+                    toggleIsPinSet(false);
+                  } else {
+                    if (params?.backEnabled) {
+                      navigation?.navigate('Change Pin Screen');
+                    }
+                  }
                 }}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
+                {theme === 'dark' ? (
+                  <ArrowSqrLeftWhiteIcon />
+                ) : (
+                  <ArrowSqrLeftBlackIcon />
+                )}
+              </Pressable>
+              <Text style={styles.headerHeading}>Set Pin</Text>
+              <Text style={{width: 20}}></Text>
             </View>
-          )
-        )}
-        <Image
-          style={styles.headerImage}
-          source={
-            theme === 'light'
-              ? require('../../../assets/img/header_logo.png')
-              : require('../../../assets/img/header_logo_dark.png')
-          }
-        />
-        <View style={styles.sendModalHeader}>
-          <Text style={styles.sendModalHeaderText}>
-            {isPinSet ? 'Verify Your Pin' : 'Set A 6-Digit Pin'}
-          </Text>
-        </View>
-        <Text style={styles.directionText}>
-          {!isPinSet
-            ? 'Please input a new pin for your account. This will be used to unlock the app.'
-            : 'Please verify your new pin.'}
-        </Text>
-        {errorMessage?.length > 0 && (
-          <Text style={styles.errorMessage}>{errorMessage}</Text>
-        )}
-      </View>
-      <View style={styles.loadingAnimationWrapper}>
-        {isPinSet ? (
-          <Pin
-            role={'verify'}
-            onSuccess={onVerificationSuccess}
-            onFailure={() => console.log('Epic fail')}
-            pin={newPin}
-            setPin={onChangePin}
-          />
-        ) : (
-          <Pin
-            role={'set'}
-            onSuccess={() => navigation.navigate('Home Screen')}
-            onFailure={() => console.log('Epic fail')}
-            pin={newPin}
-            setPin={setNewPin}
-          />
-        )}
-
-        {isPinSet ? (
-          <TouchableOpacity
-            style={[
-              styles.addAccountOkButton,
-              {
-                backgroundColor: doesPinMatch
-                  ? colors.primary
-                  : colors.text_light,
-              },
-            ]}
-            onPress={onContinue}>
-            <View style={styles.buttonWrapper}>
-              <Text
-                style={[
-                  styles.addAccountOkButtonText,
-                  {color: doesPinMatch ? colors.bg : colors.text},
-                ]}>
-                Continue
+            <Image
+              source={require('../../../assets/img/new-design/bg-gradient.png')}
+              style={styles.greenShadow}
+            />
+            <Image
+              style={styles.headerImage}
+              source={
+                theme === 'light'
+                  ? require('../../../assets/img/header_logo.png')
+                  : require('../../../assets/img/header_logo_dark.png')
+              }
+            />
+            {/* <View style={styles.sendModalHeader}>
+            <Text style={styles.sendModalHeaderText}>
+              {isPinSet ? 'Verify Your Pin' : 'Set A 6-Digit Pin'}
+            </Text>
+          </View> */}
+            <View
+              style={{
+                paddingHorizontal: 20,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                width: '100%',
+              }}>
+              <Text style={styles.directionText}>
+                {!isPinSet
+                  ? 'Set a new account pin'
+                  : 'Please verify your new pin.'}
               </Text>
-              <Feather
-                name={'arrow-right'}
-                size={25}
-                color={doesPinMatch ? colors.bg : colors.text}
-                style={styles.continueIcon}
-              />
+              {errorMessage?.length > 0 && (
+                <Text style={styles.errorMessage}>{errorMessage}</Text>
+              )}
             </View>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.addAccountOkButton}
-            onPress={confirmPin}>
-            <View style={styles.buttonWrapper}>
-              <Text style={styles.addAccountOkButtonText}>Continue</Text>
-              <Feather
-                name={'arrow-right'}
-                size={25}
-                color={colors.bg}
-                style={styles.continueIcon}
-              />
+            <View style={styles.loadingAnimationWrapper}>
+              {isPinSet ? (
+                <Pin
+                  role={'verify'}
+                  onSuccess={onVerificationSuccess}
+                  onFailure={() => console.log('Epic fail')}
+                  pin={newPin}
+                  setPin={onChangePin}
+                />
+              ) : (
+                <View>
+                  <Pin
+                    role={'set'}
+                    onSuccess={() => navigation.navigate('Home Screen')}
+                    onFailure={() => console.log('Epic fail')}
+                    pin={newPin}
+                    setPin={setNewPin}
+                  />
+                  <Text
+                    style={[
+                      styles.directionText,
+                      {
+                        marginTop: 8,
+                        fontSize: 12,
+                      },
+                    ]}>
+                    This pin will be used to unlock the app.
+                  </Text>
+                </View>
+              )}
+
+              {isPinSet ? (
+                <TouchableOpacity
+                  style={[
+                    styles.addAccountOkButton,
+                    {
+                      backgroundColor: doesPinMatch
+                        ? colors.primary
+                        : colors.text_light,
+                    },
+                  ]}
+                  onPress={onContinue}>
+                  <View style={styles.buttonWrapper}>
+                    <Text
+                      style={[
+                        styles.addAccountOkButtonText,
+                        {color: doesPinMatch ? colors.bg : colors.text},
+                      ]}>
+                      Continue
+                    </Text>
+                    <Feather
+                      name={'arrow-right'}
+                      size={24}
+                      color={doesPinMatch ? colors.bg : colors.text}
+                      style={styles.continueIcon}
+                    />
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.addAccountOkButton}
+                  onPress={confirmPin}>
+                  <View style={styles.buttonWrapper}>
+                    <Text style={styles.addAccountOkButtonText}>Continue</Text>
+                    <Feather
+                      name={'arrow-right'}
+                      size={24}
+                      color={colors.bg}
+                      style={styles.continueIcon}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
+    },
+    wrapper: {
+      width: '100%',
+      // height: '100%',
       paddingHorizontal: 20,
+      paddingVertical: 24,
+      borderRadius: 10,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
     },
     header: {
-      marginTop: 40,
-    },
-    loadingAnimationWrapper: {
-      backgroundColor: colors.bg,
-      width: '100%',
-      height: 130,
-      // marginLeft: '5%',
-      marginBottom: 100,
-      marginTop: 30,
-      // elevation: 5,
-      borderRadius: 10,
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 32,
+      borderBottomStartRadius: 32,
+      flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    headerImage: {
+      width: 279,
+      height: 53,
+      marginTop: 24,
+      marginLeft: 0,
+    },
+    loadingAnimationWrapper: {
+      width: '100%',
+      marginBottom: 8,
+      marginTop: 16,
+      paddingHorizontal: 20,
+      flex: 1,
+      flexDirection: 'column',
+      justifyContent: 'space-between',
     },
     row: {
       flexDirection: 'row',
@@ -267,72 +340,48 @@ const styling = colors =>
       alignItems: 'center',
       width: '80%',
     },
-    headerImage: {
-      width: 350,
-      height: 65,
-      marginTop: 20,
-      marginLeft: 0,
-    },
-    addAccountAnimation: {
-      marginLeft: 0,
-    },
     sendModalHeader: {
       width: '100%',
-      paddingHorizontal: 10,
+      paddingHorizontal: 20,
       flexDirection: 'row',
       justifyContent: 'center',
       marginTop: 10,
     },
     sendModalHeaderText: {
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontSize: 18,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'center',
       marginTop: 50,
-      marginLeft: -20,
     },
     addAccountOkButton: {
-      width: 160,
-      height: 50,
+      width: '100%',
+      height: 44,
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'center',
-      borderRadius: 20,
+      borderRadius: 8,
       backgroundColor: colors.primary,
     },
     addAccountOkButtonText: {
       textAlign: 'center',
-      fontSize: 20,
+      fontSize: 16,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginRight: 20,
-      marginTop: Platform.OS === 'ios' ? 5 : 0,
-    },
-    backButton: {
-      width: 100,
-      height: 50,
-      alignItems: 'center',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      backgroundColor: colors.text_light,
-      borderRadius: 20,
-    },
-    buttontextDark: {
-      fontSize: 20,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginLeft: 5,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      marginRight: 8,
       marginTop: Platform.OS === 'ios' ? 5 : 0,
     },
     directionText: {
-      fontSize: 18,
-      color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaLight',
-      marginTop: 30,
-      textAlign: 'center',
+      fontSize: 14,
+      color: colors.text_gray,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanLight',
+      marginTop: 48,
+      textAlign: 'start',
     },
     buttonWrapper: {
       flexDirection: 'row',
@@ -345,12 +394,13 @@ const styling = colors =>
     },
     errorMessage: {
       color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       paddingTop: 10,
       paddingBottom: 10,
-      textAlign: 'center',
+      textAlign: 'start',
     },
   });
 

@@ -1,29 +1,42 @@
 import React from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import {
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  Image,
   StyleSheet,
-  View,
   Text,
-  TouchableOpacity,
-  Modal,
   TextInput,
-  Platform,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {light, dark} from '../../../assets/colors/colors';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {trigger} from 'react-native-haptic-feedback';
+import LinearGradient from 'react-native-linear-gradient';
 import AntDesign from 'react-native-vector-icons/AntDesign';
-import Octicons from 'react-native-vector-icons/Octicons';
 import Feather from 'react-native-vector-icons/Feather';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Octicons from 'react-native-vector-icons/Octicons';
+import {dark, light} from '../../../assets/colors/colors';
+import {
+  ArrowSqrLeftBlackIcon,
+  ArrowSqrLeftWhiteIcon,
+  CopyIconDarkIcon,
+  CopyIconLightIcon,
+  EditIconDarkIcon,
+  EditIconLightIcon,
+} from '../../../assets/img/new-design';
+import Success from '../../../components/Success';
 import useStore from '../../../data/store';
-import Navbar from '../../../components/Navbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useDeleteAccount,
   useLogin,
@@ -44,11 +57,15 @@ const AccountSettingsScreen = ({navigation}) => {
   const useLoginUser = useLogin();
   const checkUserPassword = useVerifyPassword();
   const deleteUserAccount = useDeleteAccount();
-  const {activeAccount, accounts, theme, node} = useStore();
+  const {activeAccount, accounts, theme, node, rpcUrls, hepticOptions} =
+    useStore();
   const setAccounts = useStore(state => state.setAccounts);
   const setActiveAccount = useStore(state => state.setActiveAccount);
   const setNewPadlock = useStore(state => state.setNewPadlock);
   const setAccountBalances = useStore(state => state.setAccountBalances);
+  const setActiveConnections = useStore(state => state.setActiveConnections);
+  const setNode = useStore(state => state.setNode);
+  const setTxHistory = useStore(state => state.setTxHistory);
 
   const [editModalOpen, setEditModalOpen] = React.useState(false);
   const [askModalOpen, setAskModalOpen] = React.useState(false);
@@ -58,16 +75,17 @@ const AccountSettingsScreen = ({navigation}) => {
   const [nameErrorMessage, setNameErrorMessage] = React.useState('');
   const [nonzeroErrorMessage, setNonzeroErrorMessage] = React.useState('');
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
+  let [copiedModalOpen, setCopiedModalOpen] = React.useState(false);
 
   let colors = light;
   if (theme === 'dark') {
     colors = dark;
   }
 
-  const styles = styling(colors);
+  const styles = styling(colors, theme);
 
   const getBalances = async account => {
-    const balances = await getAccountBalances(account, node);
+    const balances = await getAccountBalances(account, node, rpcUrls, setNode);
     setAccountBalances(balances);
     return balances;
   };
@@ -83,6 +101,15 @@ const AccountSettingsScreen = ({navigation}) => {
     return false;
   };
 
+  const copyToClipboard = () => {
+    Clipboard.setString(activeAccount.classicAddress);
+    setCopiedModalOpen(true);
+    trigger('notificationSuccess', hepticOptions);
+    setTimeout(() => {
+      setCopiedModalOpen(false);
+    }, 2000);
+  };
+
   const editAccountName = async () => {
     if (checkName(accountName)) {
       let updatedAccounts = [];
@@ -91,15 +118,20 @@ const AccountSettingsScreen = ({navigation}) => {
         if (account.classicAddress === activeAccount.classicAddress) {
           let accountCopy = account;
           accountCopy.name = accountName;
-          updatedAccounts.push(accountCopy);
-
           await updateUser
             .mutateAsync({
               payload: {name: accountName},
               id: account.id,
             })
             .then(res => {
-              console.log('------------user name update------------');
+              updatedAccounts.push(accountCopy);
+              setActiveAccount(accountCopy);
+              AsyncStorage.setItem(
+                'activeAccount',
+                JSON.stringify(accountCopy),
+              ).then(() => {
+                console.log('accounts set asynchronously');
+              });
             });
         } else {
           updatedAccounts.push(account);
@@ -120,7 +152,7 @@ const AccountSettingsScreen = ({navigation}) => {
     let isZero = true;
     for (let i = 0; i < activeAccount.balances.length; i++) {
       if (activeAccount.balances[i].currency === 'XRP') {
-        if (parseInt(activeAccount.balances[i].value) > 15) {
+        if (parseInt(activeAccount.balances[i].value) > 2) {
           isZero = false;
         }
       } else {
@@ -140,7 +172,7 @@ const AccountSettingsScreen = ({navigation}) => {
     } else {
       // error
       setNonzeroErrorMessage(
-        'Error: Your account must have no more than 15 XRP and exactly 0 of any other currency in order to delete.',
+        'Error: Your account must have no more than 2 XRP and exactly 0 of any other currency in order to delete.',
       );
       setTimeout(() => {
         setNonzeroErrorMessage('');
@@ -155,11 +187,14 @@ const AccountSettingsScreen = ({navigation}) => {
         if (res?.found) {
           await deleteUserAccount
             .mutateAsync(activeAccount?.id)
-            .then(response => {
+            .then(async response => {
               console.log('------------delete response', response);
               let updatedAccounts = accounts?.filter(
                 account => account?.id != activeAccount?.id,
               );
+              setTxHistory([]);
+              await AsyncStorage.removeItem('swap_sessions');
+              setActiveConnections([]);
               if (updatedAccounts.length === 0) {
                 AsyncStorage.clear();
                 setAccounts([]);
@@ -224,191 +259,308 @@ const AccountSettingsScreen = ({navigation}) => {
 
   return (
     <GestureHandlerRootView>
-      <SafeAreaView style={{backgroundColor: colors.bg}}>
+      <SafeAreaView style={{backgroundColor: colors.bg_gray}}>
         <StatusBar />
         <View style={styles.bg}>
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Image
-                style={styles.headerImage}
-                source={require('../../../assets/img/hero.png')}
-              />
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.headerText}>Settings</Text>
-              <Text style={styles.accountNameText}>{activeAccount.name}</Text>
-            </View>
+            <Pressable onPress={() => navigation.navigate('Settings Screen')}>
+              {theme === 'dark' ? (
+                <ArrowSqrLeftWhiteIcon />
+              ) : (
+                <ArrowSqrLeftBlackIcon />
+              )}
+            </Pressable>
+            <Text style={styles.headerHeading}>Manage Account</Text>
+            <Text style={{width: 20}}></Text>
           </View>
+          <Image
+            source={require('../../../assets/img/new-design/bg-gradient.png')}
+            style={styles.greenShadow}
+          />
           <ScrollView style={styles.settingsWrapper}>
-            <View style={styles.settingsButtonContainer}>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Settings Screen')}>
-                <Feather
-                  name={'chevron-left'}
-                  size={35}
-                  color={colors.text}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text style={styles.actionButtonText}>Account</Text>
+            <View style={[styles.column]}>
+              <Text style={styles.label}>Name</Text>
+              <View style={[styles.settingCard]}>
+                <Text style={styles.value}>{activeAccount?.name}</Text>
+                <Pressable onPress={() => setEditModalOpen(true)}>
+                  {theme === 'dark' ? (
+                    <EditIconDarkIcon />
+                  ) : (
+                    <EditIconLightIcon />
+                  )}
+                </Pressable>
+              </View>
             </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
-              <Text style={styles.address}>{activeAccount.classicAddress}</Text>
+            <View
+              style={[
+                styles.column,
+                {
+                  marginTop: 16,
+                },
+              ]}>
+              <Text style={styles.label}>Wallet</Text>
+              <View style={[styles.settingCard]}>
+                <Text
+                  style={[
+                    styles.value,
+                    {
+                      fontSize: 12,
+                    },
+                  ]}>
+                  {activeAccount?.classicAddress}
+                </Text>
+                <Pressable onPress={() => copyToClipboard()}>
+                  {theme === 'dark' ? (
+                    <CopyIconDarkIcon />
+                  ) : (
+                    <CopyIconLightIcon />
+                  )}
+                </Pressable>
+              </View>
             </View>
-            <View style={styles.hl}></View>
-            <View style={styles.setting}>
-              <Text style={styles.settingText}>Name: {activeAccount.name}</Text>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => setEditModalOpen(true)}>
-                <Text style={styles.editButtonText}>Edit Name</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
-            <View style={styles.deleteSetting}>
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => setAskModalOpen(true)}>
-                <Text style={styles.deleteButtonText}>Delete Account</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hl}></View>
+            <Pressable
+              style={[styles.deleteBtn]}
+              onPress={() => setAskModalOpen(true)}>
+              <Text style={styles.deleteBtnText}>Delete Account</Text>
+            </Pressable>
           </ScrollView>
-          <Navbar activeIcon="settings" navigation={navigation} />
 
           <Modal visible={editModalOpen} transparent={true}>
-            <View style={styles.addAccountModalWrapper}>
-              <View style={styles.sendModalHeader}>
-                <View style={styles.sendModalHeaderSpacer}></View>
-                <Text style={styles.sendModalHeaderText}>
-                  Edit Account Name
-                </Text>
-                <TouchableOpacity
-                  style={styles.sendModalCloseButton}
-                  onPress={() => setEditModalOpen(false)}>
-                  <Text style={styles.sendModalHeaderText}>X</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.addAccountModalActionsWrapper}>
-                <TextInput
-                  style={styles.accountNameInput}
-                  onChangeText={setAccountName}
-                  value={accountName}
-                  placeholder="Account Name"
-                  placeholderTextColor={colors.text_dark}
-                />
-                {nameErrorMessage.length > 0 && (
-                  <Text style={styles.errorMessageText}>
-                    {nameErrorMessage}
-                  </Text>
-                )}
-                <View style={styles.addAccountActionButtons}>
-                  <TouchableOpacity
-                    style={styles.addAccountOkButton}
-                    onPress={editAccountName}>
-                    <View style={styles.saveButton}>
-                      <Text style={styles.addAccountOkButtonText}>Save</Text>
+            <View style={{flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)'}}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardAvoidingContainer}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 5 : 0}>
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                  }}>
+                  <View style={styles.addAccountModalWrapperBottomSheet}>
+                    <View style={styles.sendModalHeader}>
+                      <Text style={styles.sendModalHeaderText}>
+                        Edit Account Name
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.sendModalCloseButton}
+                        onPress={() => {
+                          setAccountName(activeAccount.name);
+                          setEditModalOpen(false);
+                        }}>
+                        <Text style={styles.sendModalHeaderCross}>X</Text>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
+                    <View style={styles.addAccountModalActionsWrapper}>
+                      <TextInput
+                        style={styles.accountNameInput}
+                        onChangeText={setAccountName}
+                        value={accountName}
+                        placeholder="Account Name"
+                        placeholderTextColor={colors.text_dark}
+                      />
+                      {nameErrorMessage.length > 0 && (
+                        <Text style={styles.errorMessageText}>
+                          {nameErrorMessage}
+                        </Text>
+                      )}
+                      <View
+                        style={[
+                          styles.addAccountActionButtons,
+                          {marginTop: 10},
+                        ]}>
+                        <TouchableOpacity
+                          style={[
+                            styles.noButton,
+                            {
+                              backgroundColor: colors.cancel_btn_bg,
+                              borderColor: colors.cancel_btn_bg,
+                            },
+                          ]}
+                          onPress={() => {
+                            setAccountName(activeAccount.name);
+                            setEditModalOpen(false);
+                          }}>
+                          <View style={styles.saveButton}>
+                            <Text
+                              style={[
+                                styles.addAccountOkButtonText,
+                                {
+                                  color: colors.text_dark,
+                                },
+                              ]}>
+                              Cancel
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.gradientWrapper}
+                          onPress={editAccountName}>
+                          <LinearGradient
+                            colors={['#37C3A6', '#AF45EE']}
+                            start={{x: 0, y: 0}}
+                            end={{x: 1, y: 0}}
+                            style={styles.gradientBtnContainer}>
+                            <Text style={styles.gradientBtnText}>Save</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
                 </View>
-              </View>
+              </KeyboardAvoidingView>
             </View>
           </Modal>
 
           <Modal visible={askModalOpen} transparent={true}>
-            <View style={styles.addAccountModalWrapper}>
-              <View style={styles.sendModalHeader}>
-                <View style={styles.sendModalHeaderSpacer}></View>
-                <Text style={styles.sendModalHeaderText}>
-                  Delete Your Account?
-                </Text>
-                <TouchableOpacity
-                  style={styles.sendModalCloseButton}
-                  onPress={closeAskModal}>
-                  <Text style={styles.sendModalHeaderText}>X</Text>
-                </TouchableOpacity>
-              </View>
-              {nonzeroErrorMessage.length === 0 ? (
-                <View style={styles.addAccountModalActionsWrapper}>
-                  <View style={styles.addAccountActionButtons}>
-                    <TouchableOpacity
-                      style={styles.yesButton}
-                      onPress={askToDelete}>
-                      <View style={styles.saveButton}>
-                        <Text style={styles.addAccountOkButtonText}>Yes</Text>
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.noButton}
-                      onPress={closeAskModal}>
-                      <View style={styles.saveButton}>
-                        <Text style={styles.addAccountOkButtonText}>No</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+              <View style={styles.addAccountModalWrapper}>
+                <View style={styles.sendModalHeader}>
+                  <Text
+                    style={[
+                      styles.sendModalHeaderText,
+                      {
+                        fontSize: 17,
+                        textAlign: 'left',
+                      },
+                    ]}>
+                    Are you sure you want to delete your account?
+                  </Text>
                 </View>
-              ) : (
-                <Text style={styles.errorMessageText}>
-                  {nonzeroErrorMessage}
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: colors.text_dark,
+                    textAlign: 'left',
+                  }}>
+                  This process will not be reversible!
                 </Text>
-              )}
+                {nonzeroErrorMessage.length === 0 ? (
+                  <View style={styles.addAccountModalActionsWrapper}>
+                    <View style={styles.addAccountActionButtons}>
+                      <TouchableOpacity
+                        style={styles.noButton}
+                        onPress={closeAskModal}>
+                        <View style={styles.saveButton}>
+                          <Text
+                            style={[
+                              styles.addAccountOkButtonText,
+                              {
+                                color: colors.text_dark,
+                              },
+                            ]}>
+                            Cancel
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.addAccountOkButton}
+                        onPress={askToDelete}>
+                        <View style={styles.saveButton}>
+                          <Text style={styles.addAccountOkButtonText}>Yes</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.errorMessageText}>
+                    {nonzeroErrorMessage}
+                  </Text>
+                )}
+              </View>
             </View>
           </Modal>
 
           <Modal visible={deleteModalOpen} transparent={true}>
-            <View style={styles.addAccountModalWrapperLong}>
-              <View style={styles.sendModalHeader}>
-                <Text style={styles.sendModalHeaderTextLeft}>
-                  Enter Your Password To Delete This Account
-                </Text>
-                <TouchableOpacity
-                  style={styles.sendModalCloseButton}
-                  onPress={() => setDeleteModalOpen(false)}>
-                  <Text style={styles.sendModalHeaderText}>X</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.addAccountModalActionsWrapper}>
-                <TextInput
-                  style={styles.accountNameInput}
-                  onChangeText={setAccountPassword}
-                  value={accountPassword}
-                  placeholder="Password"
-                  placeholderTextColor={colors.text_dark}
-                />
-                {passwordErrorMessage.length > 0 && (
-                  <Text style={styles.errorMessageText}>
-                    {passwordErrorMessage}
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+              <View style={styles.addAccountModalWrapper}>
+                <View style={styles.sendModalHeader}>
+                  <Text
+                    style={[
+                      styles.sendModalHeaderText,
+                      {
+                        fontSize: 17,
+                        textAlign: 'left',
+                      },
+                    ]}>
+                    Enter Your Password To Delete This Account
                   </Text>
-                )}
-                <View style={styles.addAccountActionButtons}>
-                  <TouchableOpacity
-                    style={styles.deleteAccountButton}
-                    onPress={deleteAccount}>
-                    <View style={styles.saveButton}>
-                      <Text style={styles.deleteAccountButtonText}>
-                        Delete My Account
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                </View>
+                <View style={styles.addAccountModalActionsWrapper}>
+                  <TextInput
+                    style={styles.accountNameInput}
+                    onChangeText={setAccountPassword}
+                    value={accountPassword}
+                    placeholder="Password"
+                    placeholderTextColor={colors.text_dark}
+                  />
+                  {passwordErrorMessage.length > 0 && (
+                    <Text style={styles.errorMessageText}>
+                      {passwordErrorMessage}
+                    </Text>
+                  )}
+                  <View style={styles.addAccountActionButtons}>
+                    <TouchableOpacity
+                      style={styles.noButton}
+                      onPress={() => setDeleteModalOpen(false)}>
+                      <View style={styles.saveButton}>
+                        <Text
+                          style={[
+                            styles.addAccountOkButtonText,
+                            {
+                              color: colors.text_dark,
+                            },
+                          ]}>
+                          Cancel
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteAccountButton}
+                      onPress={deleteAccount}>
+                      <View style={styles.saveButton}>
+                        <Text style={styles.deleteAccountButtonText}>
+                          Delete My Account
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
           </Modal>
+
+          {copiedModalOpen && (
+            <Success
+              isOpen={copiedModalOpen}
+              setIsOpen={setCopiedModalOpen}
+              message={'Copied to Clipboard'}
+              type={'success'}
+            />
+          )}
         </View>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
 
-const styling = colors =>
+const styling = (colors, theme) =>
   StyleSheet.create({
     bg: {
-      backgroundColor: colors.bg,
+      backgroundColor: colors.bg_gray,
       alignItems: 'center',
       flexDirection: 'column',
       height: '100%',
-      paddingHorizontal: 10,
     },
     saveButton: {
       flexDirection: 'row',
@@ -416,22 +568,33 @@ const styling = colors =>
     },
     sendModalHeader: {
       width: '100%',
-      paddingHorizontal: 10,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
+      alignItems: 'center',
     },
     sendModalHeaderText: {
       fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '700',
       color: colors.text,
       textAlign: 'center',
     },
+    sendModalHeaderCross: {
+      fontSize: 20,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanLight' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 5,
+      padding: 5,
+    },
     sendModalHeaderTextLeft: {
       fontSize: 18,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       color: colors.text,
       textAlign: 'left',
       marginRight: 10,
@@ -440,8 +603,7 @@ const styling = colors =>
     addAccountModalWrapper: {
       backgroundColor: colors.bg,
       width: '90%',
-      height: 180,
-      marginLeft: '5%',
+      padding: 24,
       marginBottom: 100,
       marginTop: 100,
       elevation: 5,
@@ -449,15 +611,34 @@ const styling = colors =>
       shadowOffset: {width: 5, height: 4},
       shadowOpacity: 0.2,
       shadowRadius: 20,
-      borderRadius: 10,
-      justifyContent: 'space-between',
+      borderRadius: 16,
+      flexDirection: 'column',
       alignItems: 'center',
+      gap: 16,
     },
+    addAccountModalWrapperBottomSheet: {
+      backgroundColor: colors.bg,
+      width: '100%',
+      padding: 24,
+      paddingBottom: 30,
+      elevation: 5,
+      shadowColor: '#000000',
+      shadowOffset: {width: 5, height: 4},
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      // borderRadius: 16,
+      borderTopRightRadius: 30,
+      borderTopLeftRadius: 30,
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 16,
+    },
+
     addAccountModalWrapperLong: {
       backgroundColor: colors.bg,
       width: '90%',
       height: 240,
-      marginLeft: '5%',
+      // marginLeft: '5%',
       marginBottom: 100,
       marginTop: 100,
       elevation: 5,
@@ -470,47 +651,38 @@ const styling = colors =>
       alignItems: 'center',
     },
     addAccountModalActionsWrapper: {
-      paddingHorizontal: 10,
       width: '100%',
       // justifyContent: 'space-evenly',
       flexDirection: 'column',
+      gap: 16,
       alignItems: 'center',
-    },
-    addAccountModalDirections: {
-      textAlign: 'right',
-      fontSize: 16,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      // marginBottom: 20
     },
     addAccountActionButtons: {
       flexDirection: 'row',
-      justifyContent: 'center',
-      marginBottom: 10,
-      marginTop: 10,
-      marginLeft: 10,
+      justifyContent: 'space-between',
+      gap: 8,
+      width: '100%',
     },
     addAccountOkButton: {
-      width: 100,
-      height: 50,
+      width: '48%',
+      height: 48,
       alignItems: 'center',
       flexDirection: 'column',
       justifyContent: 'center',
       backgroundColor: colors.primary,
-      borderRadius: 25,
+      borderRadius: 8,
       marginBottom: 10,
     },
     noButton: {
-      width: 100,
-      height: 50,
+      width: '48%',
+      height: 48,
       alignItems: 'center',
       flexDirection: 'column',
       justifyContent: 'center',
-      backgroundColor: colors.primary,
-      borderRadius: 25,
-      marginBottom: 10,
-      marginLeft: 10,
+      backgroundColor: 'transparent',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.text_dark,
     },
     yesButton: {
       width: 100,
@@ -527,204 +699,200 @@ const styling = colors =>
       textAlign: 'center',
       fontSize: 16,
       color: colors.bg,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
     },
     accountNameInput: {
-      height: 40,
       width: '100%',
-      paddingHorizontal: 10,
-      margin: 10,
-      backgroundColor: colors.text_light,
-      borderColor: colors.primary,
-      padding: 10,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.text,
-      borderRadius: 10,
-      paddingTop: 14,
-    },
-    editButton: {
-      width: 100,
-      height: 30,
-      borderRadius: 20,
-      backgroundColor: colors.primary,
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    editButtonText: {
+      height: 55,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderColor: colors.text_input_background,
+      borderWidth: 1,
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+      color: '#8F92A1',
+      backgroundColor: colors.text_input_background,
       fontSize: 14,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.bg,
-      marginTop: 4,
+      borderRadius: 8,
     },
-    setting: {
-      width: '100%',
-      height: 50,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    settingText: {
-      fontSize: 16,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-    },
-    address: {
-      fontSize: 14,
-      color: colors.text_dark,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-    },
-    textAndIconWrapper: {
-      flexDirection: 'row',
-      justifyContent: 'flex-start',
-      width: '50%',
-    },
-    spacer: {
-      width: 50,
-    },
+
     sendModalHeaderSpacer: {
       width: 10,
     },
-    hl: {
-      width: '100%',
-      height: 3,
-      backgroundColor: colors.text_light,
-    },
-    headerImage: {
-      width: 50,
-      height: 50,
-      marginLeft: 0,
-      marginTop: 0,
-    },
     header: {
-      width: '100%',
+      paddingHorizontal: 20,
+      paddingTop: 22,
+      paddingBottom: 30,
+      backgroundColor:
+        theme === 'dark'
+          ? 'rgba(26, 26, 26, 0.77)'
+          : 'rgba(255, 255, 255, 0.77)',
+      borderBottomEndRadius: 40,
+      borderBottomStartRadius: 40,
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 10,
-      marginBottom: 10,
+      alignItems: 'center',
+      width: '100%',
+    },
+    headerHeading: {
+      fontSize: 18,
+      fontWeight: '700',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      color: colors.text,
+    },
+    greenShadow: {
+      position: 'absolute',
+      top: 0,
+      zIndex: -1,
+      marginTop: -250,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    column: {
+      flexDirection: 'column',
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme === 'dark' ? '#F8F8F8' : '#636363',
+    },
+    value: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    settingCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#414141' : '#ededed',
+      backgroundColor: theme === 'dark' ? '#202020' : '#fff',
+      marginTop: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      zIndex: 1000,
+    },
+    deleteBtn: {
+      marginTop: 24,
+      padding: 10,
+      borderRadius: 8,
+      backgroundColor: '#FFEFF2',
+      height: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deleteBtnText: {
+      color: '#EE4563',
+      fontSize: 16,
+      fontWeight: '600',
     },
     headerText: {
       fontSize: 18,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       textAlign: 'right',
       marginTop: 5,
     },
-    accountNameText: {
-      fontSize: 16,
-      color: colors.primary,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      marginTop: 10,
-      textAlign: 'right',
-    },
+
     settingsWrapper: {
       width: '100%',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      backgroundColor: colors.bg,
-      borderRadius: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      // backgroundColor: colors.bg_gray,
     },
-    settingsButtonContainer: {
-      backgroundColor: colors.bg,
-      flexDirection: 'row',
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      gap: 20,
-      marginBottom: 10,
-    },
-    backIcon: {
-      marginLeft: -10,
-    },
-    settingsButton: {
-      width: '100%',
-      backgroundColor: colors.bg,
-      height: 50,
-      flexDirection: 'row',
-    },
-    buttonWrapper: {
-      flexDirection: 'row',
-      width: '100%',
-      alignItems: 'center',
-    },
-    actionButtonText: {
-      color: colors.text,
-      fontSize: 20,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      textAlign: 'center',
-    },
-    visitIcon: {
+    addAccountModalCopyWrapper: {
       position: 'absolute',
-      right: 0,
+      top: 50,
+      backgroundColor: colors.secondary,
+      width: '100%',
+      height: 30,
+      elevation: 10,
+      borderRadius: 10,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginLeft: 20,
+      marginRight: 20,
     },
-    securityIcon: {
-      marginLeft: 5,
-      marginRight: 25,
+    copyModalHeader: {
+      width: '100%',
+      height: 30,
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
     },
-    supportIcon: {
-      marginLeft: 1,
-      marginRight: 22,
+    copyModalHeaderSpacer: {
+      flexDirection: 'row',
     },
-    aboutIcon: {
-      marginLeft: 3,
-      marginRight: 22,
+
+    checkIcon: {
+      marginLeft: 10,
     },
+
     errorMessageText: {
       backgroundColor: colors.text,
       color: '#ff6961',
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
       borderRadius: 20,
       padding: 10,
       marginBottom: 10,
       width: '100%',
     },
-    deleteSetting: {
-      width: '100%',
-      height: 50,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    deleteButton: {
-      width: 140,
-      height: 30,
-      borderRadius: 20,
-      backgroundColor: '#ff6961',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    deleteButtonText: {
-      fontSize: 14,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
-      color: colors.text,
-      marginTop: 4,
-    },
+
     deleteAccountButton: {
-      width: 180,
-      height: 50,
-      borderRadius: 25,
+      width: '48%',
+      height: 48,
+      borderRadius: 8,
       backgroundColor: '#ff6961',
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 10,
     },
     deleteAccountButtonText: {
       textAlign: 'center',
       fontSize: 16,
       color: colors.text,
-      fontFamily: Platform.OS === 'ios' ? 'NexaBold' : 'NexaBold',
-      fontWeight: Platform.OS === 'ios' ? 'bold' : '100',
+      fontFamily:
+        Platform.OS === 'ios' ? 'LeagueSpartanMedium' : 'LeagueSpartanMedium',
+      fontWeight: Platform.OS === 'ios' ? '500' : '100',
+    },
+    gradientBtnContainer: {
+      width: '48%',
+      height: 48,
+      alignItems: 'center',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      borderRadius: 8,
+      marginBottom: 10,
+    },
+    gradientBtnText: {
+      textAlign: 'center',
+      fontSize: 18,
+      color: '#fff',
+    },
+    gradientWrapper: {
+      width: '100%', // match cancel button
+      height: 48,
+      borderRadius: 8,
+      marginBottom: 10,
+    },
+    keyboardAvoidingContainer: {
+      width: '100%',
+      position: 'absolute',
+      bottom: 0,
     },
   });
 
