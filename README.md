@@ -10,18 +10,10 @@ This app will be available on iOS and Android devices in a few months time. Its 
 The majority of the code for this project is front-end code. Back-end functions include sending and receiving XRP and XRPH. In order to send and receive XRPH, a trustline is created.
 Feel free to check out the `components` folder to see how these screens were developed. The blockchain functionality is in the `handlers` folder.
 
-## UI Design - Figma
-
-### Light Mode
-![AppLightFigma](https://user-images.githubusercontent.com/60624108/226772924-099ba6e1-8dae-4678-a819-99ad0c4a3ec7.png)
-
-### Dark Mode
-![AppDarkFigma](https://user-images.githubusercontent.com/60624108/226772943-7bb8c000-23da-41c2-bb7e-6b08242cbb52.png)
-
 ## UI Design - App Screenshots
 
 ### Light Mode
-![AppLight](https://user-images.githubusercontent.com/60624108/226775463-ec3acefb-2a58-4bb7-bffb-332892242d0b.png)
+![AppLight](https://firebasestorage.googleapis.com/v0/b/xrphwallet.appspot.com/o/assets%2FLight%20Mode.jpg?alt=media&token=078874f4-0052-4811-be5a-814c32cc0505)
 
 ### Dark Mode
-![AppDark](https://user-images.githubusercontent.com/60624108/226775469-28f4789d-fb05-4fbf-a78a-f3f74542ffe9.png)
+![AppDark](https://firebasestorage.googleapis.com/v0/b/xrphwallet.appspot.com/o/assets%2FDark%20Mode.jpg?alt=media&token=6b344246-67c4-47fd-a096-b29695bd9fb1)
