@@ -62,7 +62,7 @@ MEMO_PREFIX = REF:
 - Optional web SDK for light clients
 
 ## Contributing
-Pull requests are welcome. Please open an issue for discussion before major changes. See `/CONTRIBUTING.md`.
+Pull requests are welcome. Please open an issue for discussion before major changes. See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute to this project.
 
 ## UI Design - App Screenshots
 
